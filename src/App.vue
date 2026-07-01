@@ -10,11 +10,13 @@ import {
   FileCheck2,
   FlaskConical,
   GraduationCap,
+  Heart,
   Network,
   Search,
   Settings,
   ShieldCheck,
   Smartphone,
+  UsersRound,
   Wifi,
   Wrench,
   Zap,
@@ -76,6 +78,12 @@ type AdminForm = {
 type GitHubContent = {
   content?: string;
   sha?: string;
+};
+
+type CounterResponse = {
+  count?: number;
+  value?: number;
+  data?: number;
 };
 
 const categories: Category[] = ["All", "Enterprise", "Development", "MDM Profile", "VPN", "Education", "Custom"];
@@ -200,6 +208,11 @@ const query = ref("");
 const certificates = ref<Certificate[]>(fallbackCertificates);
 const adminEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_ADMIN === "true";
 const isAdmin = ref(false);
+const visitorCount = ref<number | null>(null);
+const supportCount = ref<number | null>(null);
+const hasSupported = ref(false);
+const supportBusy = ref(false);
+const supportMessage = ref("");
 const adminToken = ref("");
 const adminOwner = ref("Zarqawi2");
 const adminRepo = ref("zarqawi2.github.io");
@@ -254,6 +267,99 @@ const iconOptions: { value: IconName; label: string }[] = [
 const adminCategories = computed(() =>
   categories.filter((category): category is Exclude<Category, "All"> => category !== "All"),
 );
+
+const COUNTER_NAMESPACE = "zarqawilivecertvault";
+const VISITOR_COUNTER = "visitors";
+const SUPPORT_COUNTER = "support";
+const VISITOR_STORAGE_KEY = "certvault:real-visitor-counted";
+const SUPPORT_STORAGE_KEY = "certvault:heart-supported";
+
+const isLiveSite = () => window.location.hostname === "zarqawi2.github.io";
+
+const extractCounterValue = (payload: CounterResponse) => {
+  if (typeof payload.count === "number") {
+    return payload.count;
+  }
+
+  if (typeof payload.value === "number") {
+    return payload.value;
+  }
+
+  return typeof payload.data === "number" ? payload.data : 0;
+};
+
+const counterRequest = async (name: string, action?: "up") => {
+  const path = action ? `${name}/${action}` : name;
+  const endpoint = new URL(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${path}`);
+
+  endpoint.searchParams.set("_", Date.now().toString());
+
+  const response = await fetch(endpoint.toString(), { cache: "no-store" });
+
+  if (!response.ok && !action && response.status === 400) {
+    return 0;
+  }
+
+  if (!response.ok) {
+    throw new Error("Counter request failed");
+  }
+
+  return extractCounterValue((await response.json()) as CounterResponse);
+};
+
+const formatCount = (value: number | null) => {
+  if (value === null) {
+    return "...";
+  }
+
+  return new Intl.NumberFormat("ckb-IQ").format(value);
+};
+
+const loadEngagementCounters = async () => {
+  hasSupported.value = localStorage.getItem(SUPPORT_STORAGE_KEY) === "1";
+
+  try {
+    const hasCountedVisitor = localStorage.getItem(VISITOR_STORAGE_KEY) === "1";
+
+    if (isLiveSite() && !hasCountedVisitor) {
+      visitorCount.value = await counterRequest(VISITOR_COUNTER, "up");
+      localStorage.setItem(VISITOR_STORAGE_KEY, "1");
+    } else {
+      visitorCount.value = await counterRequest(VISITOR_COUNTER);
+    }
+
+    supportCount.value = await counterRequest(SUPPORT_COUNTER);
+  } catch {
+    visitorCount.value ??= 0;
+    supportCount.value ??= 0;
+  }
+};
+
+const supportSite = async () => {
+  supportMessage.value = "";
+
+  if (hasSupported.value || supportBusy.value) {
+    return;
+  }
+
+  if (!isLiveSite()) {
+    supportMessage.value = "پشتگیری تەنها لە وێبسایتی ڕاستەقینە زیاد دەکرێت.";
+    return;
+  }
+
+  supportBusy.value = true;
+
+  try {
+    supportCount.value = await counterRequest(SUPPORT_COUNTER, "up");
+    hasSupported.value = true;
+    localStorage.setItem(SUPPORT_STORAGE_KEY, "1");
+    supportMessage.value = "سوپاس بۆ پشتگیرییەکەت.";
+  } catch {
+    supportMessage.value = "نەتوانرا پشتگیرییەکەت تۆمار بکرێت.";
+  } finally {
+    supportBusy.value = false;
+  }
+};
 
 const filteredCertificates = computed(() => {
   const term = query.value.trim().toLowerCase();
@@ -498,6 +604,7 @@ const saveCertificate = async () => {
 onMounted(() => {
   updateAdminMode();
   loadCertificates();
+  loadEngagementCounters();
   window.addEventListener("hashchange", updateAdminMode);
 });
 
@@ -557,6 +664,28 @@ onUnmounted(() => {
             <ChevronLeft :size="15" />
           </a>
         </div>
+
+        <div class="engagement-strip" aria-label="ژمارەی سەردانیکەر و پشتگیری">
+          <div class="engagement-stat">
+            <UsersRound :size="17" />
+            <span>سەردانیکەر</span>
+            <strong>{{ formatCount(visitorCount) }}</strong>
+          </div>
+
+          <button
+            class="support-button"
+            type="button"
+            :class="{ supported: hasSupported }"
+            :disabled="supportBusy || hasSupported"
+            @click="supportSite"
+          >
+            <Heart :size="17" :fill="hasSupported ? 'currentColor' : 'none'" />
+            <span>{{ hasSupported ? "پشتگیری کرا" : "پشتگیری" }}</span>
+            <strong>{{ formatCount(supportCount) }}</strong>
+          </button>
+        </div>
+
+        <p v-if="supportMessage" class="support-message">{{ supportMessage }}</p>
       </section>
 
       <section class="metrics" aria-label="ئاماری CertVault">
@@ -1106,6 +1235,71 @@ onUnmounted(() => {
   align-items: center;
   gap: 16px;
   margin-top: 30px;
+}
+
+.engagement-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.engagement-stat,
+.support-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  padding: 0 16px;
+  background: #ffffff;
+  border: 1px solid #d4e0ef;
+  border-radius: 999px;
+  color: #1b3760;
+  box-shadow: 0 8px 20px rgba(24, 66, 119, 0.05);
+}
+
+.engagement-stat svg {
+  color: #176bff;
+}
+
+.engagement-stat span,
+.support-button span {
+  color: #61718d;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.engagement-stat strong,
+.support-button strong {
+  color: #071b3a;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.support-button {
+  cursor: pointer;
+}
+
+.support-button svg {
+  color: #e23b70;
+}
+
+.support-button.supported {
+  color: #b81e54;
+  background: #fff0f5;
+  border-color: #ffc8da;
+}
+
+.support-button:disabled {
+  cursor: default;
+}
+
+.support-message {
+  margin-top: 10px;
+  color: #61718d;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .primary-action,
@@ -1930,6 +2124,17 @@ onUnmounted(() => {
 
   .hero h1 {
     font-size: 39px;
+  }
+
+  .engagement-strip {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .engagement-stat,
+  .support-button {
+    justify-content: space-between;
+    width: 100%;
   }
 
   .metrics,
