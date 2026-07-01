@@ -740,30 +740,35 @@ onUnmounted(() => {
             بدە.
           </div>
 
+          <details class="admin-advanced">
+            <summary>ڕێکخستنە پێشکەوتووەکان</summary>
+            <div class="admin-grid compact">
+              <label class="admin-field">
+                <span>Owner</span>
+                <input v-model="adminOwner" dir="ltr" type="text" />
+              </label>
+
+              <label class="admin-field">
+                <span>Repository</span>
+                <input v-model="adminRepo" dir="ltr" type="text" />
+              </label>
+
+              <label class="admin-field">
+                <span>Branch</span>
+                <input v-model="adminBranch" dir="ltr" type="text" />
+              </label>
+
+              <label class="admin-field">
+                <span>Site URL</span>
+                <input v-model="adminSiteBase" dir="ltr" type="url" />
+              </label>
+            </div>
+          </details>
+
           <div class="admin-grid">
             <label class="admin-field span-2">
               <span>GitHub token</span>
               <input v-model="adminToken" dir="ltr" type="password" autocomplete="off" placeholder="github_pat_..." />
-            </label>
-
-            <label class="admin-field">
-              <span>Owner</span>
-              <input v-model="adminOwner" dir="ltr" type="text" />
-            </label>
-
-            <label class="admin-field">
-              <span>Repository</span>
-              <input v-model="adminRepo" dir="ltr" type="text" />
-            </label>
-
-            <label class="admin-field">
-              <span>Branch</span>
-              <input v-model="adminBranch" dir="ltr" type="text" />
-            </label>
-
-            <label class="admin-field">
-              <span>Site URL</span>
-              <input v-model="adminSiteBase" dir="ltr" type="url" />
             </label>
 
             <label class="admin-field">
@@ -1048,14 +1053,14 @@ onUnmounted(() => {
 }
 
 .page {
-  width: min(100% - 48px, 1120px);
+  width: min(100% - 56px, 1080px);
   margin: 0 auto;
-  padding: 34px 0 0;
+  padding: 40px 0 0;
 }
 
 .hero {
   max-width: 720px;
-  padding: 8px 0 36px;
+  padding: 10px 0 44px;
 }
 
 .eyebrow {
@@ -1130,8 +1135,8 @@ onUnmounted(() => {
 .metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
-  padding: 26px 0;
+  gap: 18px;
+  padding: 30px 0;
   border-top: 1px solid #cfddec;
   border-bottom: 1px solid #dbe7f7;
 }
@@ -1170,7 +1175,7 @@ onUnmounted(() => {
 
 .featured,
 .catalog {
-  padding-top: 34px;
+  padding-top: 44px;
 }
 
 .featured h2,
@@ -1185,8 +1190,8 @@ onUnmounted(() => {
 .featured-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-  margin-top: 16px;
+  gap: 24px;
+  margin-top: 20px;
 }
 
 .featured-card,
@@ -1202,9 +1207,9 @@ onUnmounted(() => {
   position: relative;
   display: grid;
   grid-template-columns: 82px 1fr;
-  gap: 21px;
-  min-height: 196px;
-  padding: 32px 28px;
+  gap: 24px;
+  min-height: 214px;
+  padding: 34px 30px;
   overflow: hidden;
 }
 
@@ -1317,8 +1322,8 @@ onUnmounted(() => {
 }
 
 .install-panel {
-  margin-top: 40px;
-  padding: 34px;
+  margin-top: 48px;
+  padding: 38px;
   background: #edf6ff;
 }
 
@@ -1383,15 +1388,15 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 16px;
+  gap: 24px;
+  margin-bottom: 22px;
 }
 
 .filters {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 10px;
 }
 
 .filters button {
@@ -1414,15 +1419,15 @@ onUnmounted(() => {
 
 .certificate-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
 }
 
 .certificate-card {
   display: flex;
   flex-direction: column;
-  min-height: 220px;
-  padding: 17px;
+  min-height: 270px;
+  padding: 22px;
 }
 
 .cert-top {
@@ -1473,10 +1478,10 @@ onUnmounted(() => {
 
 .cert-description {
   display: -webkit-box;
-  min-height: 42px;
-  margin: 14px 0 0;
-  font-size: 11px;
-  -webkit-line-clamp: 2;
+  min-height: 58px;
+  margin: 17px 0 0;
+  font-size: 12px;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1484,10 +1489,10 @@ onUnmounted(() => {
 .cert-details {
   display: flex;
   flex-wrap: wrap;
-  gap: 9px;
-  margin-top: 12px;
+  gap: 11px;
+  margin-top: 15px;
   color: #7a8ca6;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 750;
 }
 
@@ -1498,14 +1503,15 @@ onUnmounted(() => {
 }
 
 .cert-actions {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 10px;
   margin-top: auto;
-  padding-top: 15px;
+  padding-top: 18px;
   color: #7a8ca6;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 850;
 }
 
@@ -1528,12 +1534,14 @@ onUnmounted(() => {
 }
 
 .cert-actions a {
-  min-height: 29px;
-  padding: 0 12px;
+  width: 100%;
+  min-height: 36px;
+  margin-top: 2px;
+  padding: 0 14px;
   color: #ffffff;
   background: #176bff;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 950;
 }
 
@@ -1608,7 +1616,7 @@ onUnmounted(() => {
 }
 
 .admin-note {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   padding: 13px 15px;
   background: #edf6ff;
   border: 1px solid #cfe0ff;
@@ -1622,7 +1630,30 @@ onUnmounted(() => {
 .admin-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 18px;
+}
+
+.admin-grid.compact {
+  margin-top: 16px;
+}
+
+.admin-advanced {
+  margin-bottom: 22px;
+  padding: 15px 16px;
+  background: #f8fbff;
+  border: 1px solid #d4e0ef;
+  border-radius: 8px;
+}
+
+.admin-advanced summary {
+  color: #176bff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.admin-advanced summary::marker {
+  color: #176bff;
 }
 
 .admin-field {
@@ -1830,7 +1861,7 @@ onUnmounted(() => {
 
   .page,
   .footer {
-    width: min(100% - 32px, 1120px);
+    width: min(100% - 36px, 1080px);
   }
 
   .metrics,
@@ -1877,7 +1908,7 @@ onUnmounted(() => {
   }
 
   .hero h1 {
-    font-size: 42px;
+    font-size: 39px;
   }
 
   .metrics,
@@ -1888,12 +1919,12 @@ onUnmounted(() => {
   }
 
   .metrics {
-    gap: 16px;
+    gap: 18px;
   }
 
   .featured-card {
-    grid-template-columns: 62px 1fr;
-    padding: 22px;
+    grid-template-columns: 58px 1fr;
+    padding: 24px;
   }
 
   .card-icon {
@@ -1902,7 +1933,7 @@ onUnmounted(() => {
   }
 
   .install-panel {
-    padding: 22px;
+    padding: 24px;
   }
 
   .admin-panel {
