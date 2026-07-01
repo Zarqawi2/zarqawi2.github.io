@@ -1,0 +1,1021 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="A modern premium white glassmorphism dashboard UI in one HTML file."
+    />
+    <title>GlassOS Dashboard</title>
+    <style>
+      :root {
+        --bg: #eef5ff;
+        --ink: #102033;
+        --muted: #66758a;
+        --blue: #2563eb;
+        --blue-deep: #174ea6;
+        --blue-soft: #dceaff;
+        --white-glass: rgba(255, 255, 255, 0.34);
+        --white-glass-strong: rgba(255, 255, 255, 0.58);
+        --line: rgba(255, 255, 255, 0.46);
+        --shadow: 0 24px 70px rgba(58, 97, 143, 0.18);
+        --shadow-soft: 0 16px 42px rgba(58, 97, 143, 0.14);
+        --radius: 20px;
+        --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        min-height: 100vh;
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "SF Pro Display", "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at 12% 10%, rgba(255, 255, 255, 0.95), transparent 26rem),
+          radial-gradient(circle at 84% 8%, rgba(155, 196, 255, 0.55), transparent 25rem),
+          radial-gradient(circle at 50% 110%, rgba(191, 219, 254, 0.68), transparent 30rem),
+          linear-gradient(135deg, #ffffff 0%, #eef5ff 48%, #dbeafe 100%);
+        overflow-x: hidden;
+      }
+
+      body::before,
+      body::after {
+        position: fixed;
+        inset: auto;
+        z-index: -2;
+        width: 34rem;
+        height: 34rem;
+        pointer-events: none;
+        content: "";
+        border-radius: 999px;
+        filter: blur(12px);
+        opacity: 0.72;
+      }
+
+      body::before {
+        top: -12rem;
+        left: -8rem;
+        background: rgba(255, 255, 255, 0.84);
+      }
+
+      body::after {
+        right: -10rem;
+        bottom: -14rem;
+        background: rgba(147, 197, 253, 0.52);
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      .shell {
+        width: min(1180px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 22px 0 46px;
+      }
+
+      .glass {
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.25)),
+          rgba(255, 255, 255, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-soft);
+        backdrop-filter: blur(24px) saturate(150%);
+        -webkit-backdrop-filter: blur(24px) saturate(150%);
+      }
+
+      .navbar {
+        position: sticky;
+        top: 16px;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        min-height: 72px;
+        padding: 12px 14px 12px 18px;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        font-weight: 850;
+        letter-spacing: -0.02em;
+      }
+
+      .brand-mark,
+      .icon-button,
+      .metric-icon {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        color: white;
+        background: linear-gradient(135deg, var(--blue), #60a5fa);
+        border-radius: 16px;
+        box-shadow: 0 14px 28px rgba(37, 99, 235, 0.24);
+      }
+
+      .brand span:last-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 6px;
+        background: rgba(255, 255, 255, 0.28);
+        border: 1px solid rgba(255, 255, 255, 0.42);
+        border-radius: 18px;
+      }
+
+      .nav-links a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 0 14px;
+        color: #38516d;
+        border-radius: 14px;
+        font-size: 14px;
+        font-weight: 750;
+        transition:
+          color 180ms var(--ease),
+          background 180ms var(--ease),
+          transform 180ms var(--ease);
+      }
+
+      .nav-links a:hover,
+      .nav-links a.active {
+        color: var(--blue-deep);
+        background: rgba(255, 255, 255, 0.58);
+        transform: translateY(-1px);
+      }
+
+      .nav-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .button,
+      .icon-button {
+        border: 0;
+        cursor: pointer;
+        transition:
+          transform 180ms var(--ease),
+          box-shadow 180ms var(--ease),
+          background 180ms var(--ease);
+      }
+
+      .button {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        min-height: 46px;
+        padding: 0 18px;
+        overflow: hidden;
+        border-radius: 16px;
+        font-weight: 850;
+      }
+
+      .button.primary {
+        color: #ffffff;
+        background: linear-gradient(135deg, #1557d8, #3b82f6);
+        box-shadow: 0 18px 38px rgba(37, 99, 235, 0.24);
+      }
+
+      .button.secondary {
+        color: var(--blue-deep);
+        background: rgba(255, 255, 255, 0.42);
+        border: 1px solid rgba(255, 255, 255, 0.54);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+      }
+
+      .button:hover,
+      .icon-button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 22px 44px rgba(37, 99, 235, 0.22);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.02fr) minmax(380px, 0.98fr);
+        gap: 22px;
+        align-items: stretch;
+        padding: 24px 0 18px;
+      }
+
+      .hero-card {
+        position: relative;
+        display: grid;
+        align-content: space-between;
+        min-height: 540px;
+        padding: clamp(28px, 5vw, 52px);
+        overflow: hidden;
+      }
+
+      .hero-card::before {
+        position: absolute;
+        top: -18%;
+        right: -10%;
+        width: 360px;
+        height: 360px;
+        content: "";
+        background: radial-gradient(circle, rgba(96, 165, 250, 0.25), transparent 68%);
+        border-radius: 999px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: fit-content;
+        min-height: 36px;
+        padding: 0 12px;
+        color: var(--blue-deep);
+        background: rgba(255, 255, 255, 0.48);
+        border: 1px solid rgba(255, 255, 255, 0.52);
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 850;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        max-width: 10.5ch;
+        margin-top: 22px;
+        color: #0e315f;
+        font-size: clamp(52px, 8vw, 96px);
+        line-height: 0.94;
+        letter-spacing: -0.05em;
+      }
+
+      .lead {
+        max-width: 620px;
+        margin-top: 22px;
+        color: var(--muted);
+        font-size: clamp(18px, 2vw, 22px);
+        line-height: 1.55;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 30px;
+      }
+
+      .hero-bottom {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 34px;
+      }
+
+      .mini-stat {
+        min-width: 0;
+        padding: 16px;
+        background: rgba(255, 255, 255, 0.34);
+        border: 1px solid rgba(255, 255, 255, 0.42);
+        border-radius: 18px;
+      }
+
+      .mini-stat strong {
+        display: block;
+        color: var(--blue-deep);
+        font-size: 28px;
+        line-height: 1;
+      }
+
+      .mini-stat span {
+        display: block;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 760;
+      }
+
+      .dashboard-panel {
+        display: grid;
+        gap: 14px;
+        min-height: 540px;
+        padding: 18px;
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 10px;
+      }
+
+      .panel-title strong,
+      .section-title h2 {
+        display: block;
+        color: #0e315f;
+      }
+
+      .panel-title span,
+      .section-title p {
+        color: var(--muted);
+      }
+
+      .search-box {
+        position: relative;
+        display: flex;
+        align-items: center;
+        min-height: 48px;
+        padding: 0 14px;
+        background: rgba(255, 255, 255, 0.42);
+        border: 1px solid rgba(255, 255, 255, 0.52);
+        border-radius: 16px;
+      }
+
+      .search-box svg {
+        flex: none;
+        color: #4f7ec7;
+      }
+
+      .search-box input {
+        width: 100%;
+        min-width: 0;
+        padding: 0 10px;
+        color: var(--ink);
+        background: transparent;
+        border: 0;
+        outline: 0;
+      }
+
+      .search-box input::placeholder {
+        color: #7891ad;
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      .metric-card,
+      .activity-card,
+      .feature-card {
+        position: relative;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-soft);
+        backdrop-filter: blur(24px) saturate(150%);
+        -webkit-backdrop-filter: blur(24px) saturate(150%);
+        transition:
+          transform 220ms var(--ease),
+          box-shadow 220ms var(--ease),
+          border-color 220ms var(--ease);
+      }
+
+      .metric-card::before,
+      .activity-card::before,
+      .feature-card::before {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        content: "";
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.64), transparent 46%);
+      }
+
+      .metric-card:hover,
+      .activity-card:hover,
+      .feature-card:hover {
+        transform: translateY(-5px);
+        border-color: rgba(255, 255, 255, 0.72);
+        box-shadow: var(--shadow);
+      }
+
+      .metric-card {
+        display: grid;
+        gap: 18px;
+        padding: 20px;
+      }
+
+      .metric-card > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .metric-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .metric-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 15px;
+      }
+
+      .trend {
+        color: var(--blue-deep);
+        font-size: 13px;
+        font-weight: 850;
+      }
+
+      .metric-card strong {
+        color: #0e315f;
+        font-size: 34px;
+        letter-spacing: -0.04em;
+      }
+
+      .metric-card p {
+        color: var(--muted);
+      }
+
+      .activity-card {
+        display: grid;
+        gap: 14px;
+        padding: 20px;
+      }
+
+      .activity-card > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .activity-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 52px;
+      }
+
+      .dot {
+        width: 11px;
+        height: 11px;
+        background: var(--blue);
+        border: 3px solid rgba(255, 255, 255, 0.84);
+        border-radius: 999px;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+      }
+
+      .activity-row strong,
+      .activity-row span {
+        display: block;
+      }
+
+      .activity-row strong {
+        color: #0e315f;
+      }
+
+      .activity-row span {
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .section {
+        padding: 22px 0 0;
+      }
+
+      .section-title {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .section-title h2 {
+        font-size: clamp(30px, 4vw, 46px);
+        letter-spacing: -0.04em;
+      }
+
+      .section-title p {
+        max-width: 520px;
+        line-height: 1.55;
+      }
+
+      .features {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .feature-card {
+        display: grid;
+        align-content: start;
+        gap: 14px;
+        min-height: 250px;
+        padding: 22px;
+      }
+
+      .feature-card > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .feature-icon {
+        display: grid;
+        place-items: center;
+        width: 52px;
+        height: 52px;
+        color: var(--blue-deep);
+        background: rgba(255, 255, 255, 0.46);
+        border: 1px solid rgba(255, 255, 255, 0.52);
+        border-radius: 18px;
+      }
+
+      .feature-card h3 {
+        color: #0e315f;
+        font-size: 20px;
+      }
+
+      .feature-card p {
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .progress-wrap {
+        display: grid;
+        gap: 12px;
+        margin-top: auto;
+      }
+
+      .progress-label {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 760;
+      }
+
+      .progress {
+        height: 10px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.54);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 999px;
+      }
+
+      .progress span {
+        display: block;
+        width: var(--value);
+        height: 100%;
+        background: linear-gradient(90deg, var(--blue-deep), #60a5fa);
+        border-radius: inherit;
+      }
+
+      .footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        margin-top: 18px;
+        padding: 18px;
+        color: var(--muted);
+      }
+
+      .footer strong {
+        color: #0e315f;
+      }
+
+      .toast {
+        position: fixed;
+        right: 22px;
+        bottom: 22px;
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 52px;
+        padding: 0 16px;
+        color: #0e315f;
+        opacity: 0;
+        transform: translateY(18px);
+        pointer-events: none;
+        transition:
+          opacity 220ms var(--ease),
+          transform 220ms var(--ease);
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .reveal {
+        opacity: 0;
+        transform: translateY(18px);
+        transition:
+          opacity 640ms var(--ease),
+          transform 640ms var(--ease);
+      }
+
+      .reveal.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @media (max-width: 920px) {
+        .navbar {
+          position: static;
+        }
+
+        .nav-links {
+          display: none;
+        }
+
+        .hero {
+          grid-template-columns: 1fr;
+        }
+
+        .hero-card,
+        .dashboard-panel {
+          min-height: auto;
+        }
+
+        .features {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .shell {
+          width: min(100% - 24px, 1180px);
+          padding-top: 12px;
+        }
+
+        .navbar,
+        .section-title,
+        .footer {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .nav-actions {
+          width: 100%;
+        }
+
+        .nav-actions .button {
+          flex: 1;
+        }
+
+        h1 {
+          font-size: clamp(46px, 15vw, 68px);
+        }
+
+        .hero-card {
+          padding: 26px;
+        }
+
+        .hero-actions,
+        .hero-bottom,
+        .metric-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .hero-actions {
+          display: grid;
+        }
+
+        .button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <nav class="navbar glass reveal" aria-label="Primary navigation">
+        <a class="brand" href="#">
+          <span class="brand-mark" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 3.5 19.5 7.8v8.4L12 20.5l-7.5-4.3V7.8L12 3.5Z"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linejoin="round"
+              />
+              <path d="m8 12 2.6 2.6L16.5 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </span>
+          <span>GlassOS</span>
+        </a>
+
+        <div class="nav-links" aria-label="Page sections">
+          <a class="active" href="#overview">Overview</a>
+          <a href="#analytics">Analytics</a>
+          <a href="#features">Features</a>
+          <a href="#launch">Launch</a>
+        </div>
+
+        <div class="nav-actions">
+          <button class="icon-button" type="button" aria-label="Open quick actions">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M4 7h16M7 12h10M10 17h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+          <button class="button primary" type="button" data-toast="Workspace created">
+            Create
+          </button>
+        </div>
+      </nav>
+
+      <main>
+        <section id="overview" class="hero">
+          <article class="hero-card glass reveal">
+            <div>
+              <span class="eyebrow">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3v18M3 12h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                Premium SaaS Dashboard
+              </span>
+              <h1>Luxury white glass interface</h1>
+              <p class="lead">
+                A clean Apple-inspired dashboard built with soft transparent surfaces,
+                premium spacing, strong blur, elegant shadows, and calm blue accents.
+              </p>
+              <div class="hero-actions">
+                <button class="button primary" type="button" data-toast="Demo started">
+                  Start demo
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </button>
+                <button class="button secondary" type="button" data-toast="Invite link copied">
+                  Copy invite
+                </button>
+              </div>
+            </div>
+
+            <div class="hero-bottom" aria-label="Key metrics">
+              <div class="mini-stat">
+                <strong>98%</strong>
+                <span>Clarity score</span>
+              </div>
+              <div class="mini-stat">
+                <strong>24ms</strong>
+                <span>Response time</span>
+              </div>
+              <div class="mini-stat">
+                <strong>4.9</strong>
+                <span>Experience rating</span>
+              </div>
+            </div>
+          </article>
+
+          <aside id="analytics" class="dashboard-panel glass reveal">
+            <div class="panel-head">
+              <div class="panel-title">
+                <strong>Control Center</strong>
+                <span>Live product snapshot</span>
+              </div>
+              <button class="button secondary" type="button" data-toast="Report exported">Export</button>
+            </div>
+
+            <label class="search-box" aria-label="Search">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" />
+                <path d="m20 20-3.6-3.6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <input id="searchInput" type="search" placeholder="Search dashboard..." />
+            </label>
+
+            <div class="metric-grid">
+              <article class="metric-card" data-search="Revenue growth">
+                <div class="metric-top">
+                  <span class="metric-icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M4 18 10 12l4 4 6-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                  <span class="trend">+18.4%</span>
+                </div>
+                <strong>$84.2K</strong>
+                <p>Revenue growth</p>
+              </article>
+
+              <article class="metric-card" data-search="Active users">
+                <div class="metric-top">
+                  <span class="metric-icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M16 11a4 4 0 1 0-8 0v1a4 4 0 1 0 8 0v-1Z" stroke="currentColor" stroke-width="2" />
+                      <path d="M4 21a8 8 0 0 1 16 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                  <span class="trend">+9.1%</span>
+                </div>
+                <strong>12.8K</strong>
+                <p>Active users</p>
+              </article>
+            </div>
+
+            <article class="activity-card" data-search="Activity timeline">
+              <div class="activity-row">
+                <span class="dot"></span>
+                <div>
+                  <strong>Design system synced</strong>
+                  <span>All components updated with glass tokens</span>
+                </div>
+              </div>
+              <div class="activity-row">
+                <span class="dot"></span>
+                <div>
+                  <strong>Dashboard report ready</strong>
+                  <span>Performance summary prepared for review</span>
+                </div>
+              </div>
+              <div class="activity-row">
+                <span class="dot"></span>
+                <div>
+                  <strong>Invite flow optimized</strong>
+                  <span>Conversion sequence improved across mobile</span>
+                </div>
+              </div>
+            </article>
+          </aside>
+        </section>
+
+        <section id="features" class="section">
+          <div class="section-title reveal">
+            <div>
+              <h2>Premium details</h2>
+              <p>
+                Every panel uses white translucent glass, strong blur, subtle borders,
+                and soft blue depth for an expensive SaaS-dashboard feel.
+              </p>
+            </div>
+            <button class="button secondary" type="button" data-toast="Preferences saved">
+              Save view
+            </button>
+          </div>
+
+          <div class="features">
+            <article class="feature-card reveal">
+              <span class="feature-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M5 5h14v14H5z" stroke="currentColor" stroke-width="2" />
+                  <path d="M9 9h6v6H9z" stroke="currentColor" stroke-width="2" />
+                </svg>
+              </span>
+              <h3>Glass cards</h3>
+              <p>
+                Layered white cards with rgba backgrounds, transparent borders,
+                backdrop blur, and smooth hover elevation.
+              </p>
+              <div class="progress-wrap">
+                <div class="progress-label"><span>Polish</span><span>96%</span></div>
+                <div class="progress"><span style="--value: 96%"></span></div>
+              </div>
+            </article>
+
+            <article class="feature-card reveal">
+              <span class="feature-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3v18M5 8h14M7 16h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </span>
+              <h3>Perfect spacing</h3>
+              <p>
+                Generous layout rhythm, balanced card heights, responsive grids,
+                and calm hierarchy for a professional product surface.
+              </p>
+              <div class="progress-wrap">
+                <div class="progress-label"><span>Balance</span><span>92%</span></div>
+                <div class="progress"><span style="--value: 92%"></span></div>
+              </div>
+            </article>
+
+            <article id="launch" class="feature-card reveal">
+              <span class="feature-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3 4 21l8-4 8 4-8-18Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                </svg>
+              </span>
+              <h3>Smooth motion</h3>
+              <p>
+                Lightweight JavaScript adds reveal animations, active navigation,
+                search filtering, and refined toast feedback.
+              </p>
+              <div class="progress-wrap">
+                <div class="progress-label"><span>Motion</span><span>89%</span></div>
+                <div class="progress"><span style="--value: 89%"></span></div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer glass reveal">
+        <div>
+          <strong>GlassOS Dashboard</strong>
+          <span> White glassmorphism UI template</span>
+        </div>
+        <button class="button primary" type="button" data-toast="Dashboard published">
+          Publish
+        </button>
+      </footer>
+    </div>
+
+    <div id="toast" class="toast glass" role="status" aria-live="polite">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="m5 12 4 4L19 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <span>Action complete</span>
+    </div>
+
+    <script>
+      const toast = document.querySelector("#toast");
+      const toastText = toast.querySelector("span");
+      let toastTimer;
+
+      document.querySelectorAll("[data-toast]").forEach((button) => {
+        button.addEventListener("click", () => {
+          toastText.textContent = button.dataset.toast;
+          toast.classList.add("show");
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => toast.classList.remove("show"), 1800);
+        });
+      });
+
+      const revealObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("visible");
+              revealObserver.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.15 }
+      );
+
+      document.querySelectorAll(".reveal").forEach((element, index) => {
+        element.style.transitionDelay = `${Math.min(index * 70, 320)}ms`;
+        revealObserver.observe(element);
+      });
+
+      const navLinks = document.querySelectorAll(".nav-links a");
+      const sections = [...navLinks].map((link) => document.querySelector(link.getAttribute("href")));
+
+      window.addEventListener("scroll", () => {
+        const active = sections
+          .filter(Boolean)
+          .findLast((section) => section.getBoundingClientRect().top < window.innerHeight * 0.38);
+
+        if (!active) return;
+        navLinks.forEach((link) => {
+          link.classList.toggle("active", link.getAttribute("href") === `#${active.id}`);
+        });
+      });
+
+      const searchInput = document.querySelector("#searchInput");
+      const searchableCards = document.querySelectorAll("[data-search]");
+
+      searchInput.addEventListener("input", () => {
+        const term = searchInput.value.trim().toLowerCase();
+        searchableCards.forEach((card) => {
+          const text = card.dataset.search.toLowerCase();
+          card.style.display = !term || text.includes(term) ? "" : "none";
+        });
+      });
+    </script>
+  </body>
+</html>
