@@ -733,11 +733,16 @@ onUnmounted(() => {
           </div>
 
           <div class="admin-note">
-            بۆ token ـی fine-grained، دەستپێگەیشتنی ڕیپۆزیتۆری
-            <b dir="ltr">Zarqawi2/zarqawi2.github.io</b>
-            هەڵبژێرە و ڕێگەی
-            <b dir="ltr">Contents: Read and write</b>
-            بدە.
+            <span>
+              بۆ token ـی fine-grained، دەستپێگەیشتنی ڕیپۆزیتۆری
+              <b dir="ltr">Zarqawi2/zarqawi2.github.io</b>
+              هەڵبژێرە و ڕێگەی
+              <b dir="ltr">Contents: Read and write</b>
+              بدە.
+            </span>
+            <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">
+              دروستکردنی token
+            </a>
           </div>
 
           <details class="admin-advanced">
@@ -1616,6 +1621,10 @@ onUnmounted(() => {
 }
 
 .admin-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
   margin-bottom: 16px;
   padding: 13px 15px;
   background: #edf6ff;
@@ -1625,6 +1634,18 @@ onUnmounted(() => {
 
 .admin-note b {
   color: #1f487d;
+}
+
+.admin-note a {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 6px 12px;
+  color: #ffffff;
+  background: #176bff;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 950;
+  text-decoration: none;
 }
 
 .admin-grid {
@@ -1938,6 +1959,11 @@ onUnmounted(() => {
 
   .admin-panel {
     padding: 20px;
+  }
+
+  .admin-note {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .admin-panel-head,
