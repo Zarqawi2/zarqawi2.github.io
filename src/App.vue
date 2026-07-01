@@ -291,12 +291,19 @@ const installUrl = (certificate: Certificate) => {
 const certIcon = (icon: string) => iconComponents[icon as IconName] ?? FileCheck2;
 
 const updateAdminMode = () => {
+  const params = new URLSearchParams(window.location.search);
+
   if (!adminEnabled) {
+    if (params.has("admin") || window.location.hash === "#admin") {
+      params.delete("admin");
+      const nextSearch = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}`);
+    }
+
     isAdmin.value = false;
     return;
   }
 
-  const params = new URLSearchParams(window.location.search);
   isAdmin.value = params.has("admin") || window.location.hash === "#admin";
 };
 
