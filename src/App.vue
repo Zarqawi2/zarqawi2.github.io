@@ -198,6 +198,7 @@ const fallbackCertificates: Certificate[] = [
 const activeCategory = ref<Category>("All");
 const query = ref("");
 const certificates = ref<Certificate[]>(fallbackCertificates);
+const adminEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_ADMIN === "true";
 const isAdmin = ref(false);
 const adminToken = ref("");
 const adminOwner = ref("Zarqawi2");
@@ -290,6 +291,11 @@ const installUrl = (certificate: Certificate) => {
 const certIcon = (icon: string) => iconComponents[icon as IconName] ?? FileCheck2;
 
 const updateAdminMode = () => {
+  if (!adminEnabled) {
+    isAdmin.value = false;
+    return;
+  }
+
   const params = new URLSearchParams(window.location.search);
   isAdmin.value = params.has("admin") || window.location.hash === "#admin";
 };
@@ -513,7 +519,7 @@ onUnmounted(() => {
           <BadgeCheck :size="14" />
           پرۆفایلە پشتڕاستکراوەکان
         </span>
-        <a class="admin-link" :href="isAdmin ? './' : '?admin=1'">
+        <a v-if="adminEnabled" class="admin-link" :href="isAdmin ? './' : '?admin=1'">
           {{ isAdmin ? "ماڵەوە" : "ئادمین" }}
         </a>
       </div>
