@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import type { Component } from "vue";
 import {
   BadgeCheck,
@@ -22,6 +22,23 @@ import {
 
 type Category = "All" | "Enterprise" | "Development" | "MDM Profile" | "VPN" | "Education" | "Custom";
 type Tone = "blue" | "violet" | "green" | "orange" | "cyan";
+type UploadMode = "profile" | "manifest";
+
+const iconComponents = {
+  Building2,
+  FileCheck2,
+  FlaskConical,
+  GraduationCap,
+  Network,
+  Settings,
+  ShieldCheck,
+  Smartphone,
+  Wifi,
+  Wrench,
+  Zap,
+} satisfies Record<string, Component>;
+
+type IconName = keyof typeof iconComponents;
 
 type Certificate = {
   name: string;
@@ -31,12 +48,34 @@ type Certificate = {
   issuer: string;
   installs: string;
   validFor: string;
-  installKey: string;
+  installKey?: string;
+  installUrl?: string;
   tone: Tone;
-  icon: Component;
+  icon: IconName;
   featured?: boolean;
   badge?: string;
   warning?: boolean;
+};
+
+type AdminForm = {
+  name: string;
+  subtitle: string;
+  description: string;
+  category: Exclude<Category, "All">;
+  issuer: string;
+  installs: string;
+  validFor: string;
+  installUrl: string;
+  tone: Tone;
+  icon: IconName;
+  badge: string;
+  featured: boolean;
+  warning: boolean;
+};
+
+type GitHubContent = {
+  content?: string;
+  sha?: string;
 };
 
 const categories: Category[] = ["All", "Enterprise", "Development", "MDM Profile", "VPN", "Education", "Custom"];
@@ -51,7 +90,7 @@ const categoryLabels: Record<Category, string> = {
   Custom: "تایبەت",
 };
 
-const certificates: Certificate[] = [
+const fallbackCertificates: Certificate[] = [
   {
     name: "پرۆفایلی تەواوی Enterprise",
     subtitle: "Apple Inc.",
@@ -62,7 +101,7 @@ const certificates: Certificate[] = [
     validFor: "١ ساڵ",
     installKey: "XL",
     tone: "blue",
-    icon: Building2,
+    icon: "Building2",
     featured: true,
     badge: "زۆرترین بەکارهێنان",
   },
@@ -76,7 +115,7 @@ const certificates: Certificate[] = [
     validFor: "بێ سنوور",
     installKey: "National",
     tone: "violet",
-    icon: Smartphone,
+    icon: "Smartphone",
     featured: true,
     badge: "پێشنیارکراو",
   },
@@ -90,7 +129,7 @@ const certificates: Certificate[] = [
     validFor: "٢ ساڵ",
     installKey: "Rural",
     tone: "green",
-    icon: ShieldCheck,
+    icon: "ShieldCheck",
   },
   {
     name: "بەڵگەنامەی گەشەپێدان",
@@ -102,7 +141,7 @@ const certificates: Certificate[] = [
     validFor: "١ ساڵ",
     installKey: "ChinaAcademy",
     tone: "orange",
-    icon: Wrench,
+    icon: "Wrench",
   },
   {
     name: "پرۆفایلی دامەزراوەی پەروەردە",
@@ -114,7 +153,7 @@ const certificates: Certificate[] = [
     validFor: "١ ساڵ",
     installKey: "ChinaPower",
     tone: "cyan",
-    icon: GraduationCap,
+    icon: "GraduationCap",
     badge: "نوێ",
   },
   {
@@ -127,7 +166,7 @@ const certificates: Certificate[] = [
     validFor: "هەمیشەیی",
     installKey: "Postal",
     tone: "cyan",
-    icon: Wifi,
+    icon: "Wifi",
   },
   {
     name: "واژۆکردنی Enterprise ـی تایبەت",
@@ -139,7 +178,7 @@ const certificates: Certificate[] = [
     validFor: "١ ساڵ",
     installKey: "Takeoff",
     tone: "violet",
-    icon: FlaskConical,
+    icon: "FlaskConical",
   },
   {
     name: "جێگرەوەی TestFlight",
@@ -151,18 +190,74 @@ const certificates: Certificate[] = [
     validFor: "٩٠ ڕۆژ",
     installKey: "Election",
     tone: "orange",
-    icon: Zap,
+    icon: "Zap",
     warning: true,
   },
 ];
 
 const activeCategory = ref<Category>("All");
 const query = ref("");
+const certificates = ref<Certificate[]>(fallbackCertificates);
+const isAdmin = ref(false);
+const adminToken = ref("");
+const adminOwner = ref("Zarqawi2");
+const adminRepo = ref("zarqawi2.github.io");
+const adminBranch = ref("main");
+const adminSiteBase = ref("https://zarqawi2.github.io");
+const adminStatus = ref("");
+const adminError = ref("");
+const adminBusy = ref(false);
+const uploadMode = ref<UploadMode>("profile");
+const selectedUploadFile = ref<File | null>(null);
+
+const createAdminForm = (): AdminForm => ({
+  name: "",
+  subtitle: "Apple Inc.",
+  description: "",
+  category: "Enterprise",
+  issuer: "Apple Enterprise",
+  installs: "٠",
+  validFor: "١ ساڵ",
+  installUrl: "",
+  tone: "blue",
+  icon: "FileCheck2",
+  badge: "",
+  featured: false,
+  warning: false,
+});
+
+const adminForm = ref<AdminForm>(createAdminForm());
+
+const toneOptions: { value: Tone; label: string }[] = [
+  { value: "blue", label: "شین" },
+  { value: "violet", label: "مۆر" },
+  { value: "green", label: "سەوز" },
+  { value: "orange", label: "پرتەقاڵی" },
+  { value: "cyan", label: "ئاسمانی" },
+];
+
+const iconOptions: { value: IconName; label: string }[] = [
+  { value: "FileCheck2", label: "بەڵگەنامە" },
+  { value: "Building2", label: "کارگێڕی" },
+  { value: "Smartphone", label: "مۆبایل" },
+  { value: "ShieldCheck", label: "ئاسایش" },
+  { value: "Wrench", label: "گەشەپێدان" },
+  { value: "GraduationCap", label: "پەروەردە" },
+  { value: "Wifi", label: "Wi-Fi" },
+  { value: "FlaskConical", label: "تاقیگە" },
+  { value: "Zap", label: "ئاگاداری" },
+  { value: "Network", label: "تۆڕ" },
+  { value: "Settings", label: "ڕێکخستن" },
+];
+
+const adminCategories = computed(() =>
+  categories.filter((category): category is Exclude<Category, "All"> => category !== "All"),
+);
 
 const filteredCertificates = computed(() => {
   const term = query.value.trim().toLowerCase();
 
-  return certificates.filter((certificate) => {
+  return certificates.value.filter((certificate) => {
     const matchesCategory = activeCategory.value === "All" || certificate.category === activeCategory.value;
     const searchable = [
       certificate.name,
@@ -179,10 +274,223 @@ const filteredCertificates = computed(() => {
   });
 });
 
-const featuredCertificates = computed(() => certificates.filter((certificate) => certificate.featured));
+const featuredCertificates = computed(() => certificates.value.filter((certificate) => certificate.featured));
 
-const installUrl = (installKey: string) =>
+const legacyInstallUrl = (installKey: string) =>
   `itms-services://?action=download-manifest&url=https://raw.githubusercontent.com/FrizzleM/SideInstaller/main/output/sideinstaller-${installKey}.plist`;
+
+const installUrl = (certificate: Certificate) => {
+  if (certificate.installUrl) {
+    return certificate.installUrl;
+  }
+
+  return certificate.installKey ? legacyInstallUrl(certificate.installKey) : "#";
+};
+
+const certIcon = (icon: string) => iconComponents[icon as IconName] ?? FileCheck2;
+
+const updateAdminMode = () => {
+  const params = new URLSearchParams(window.location.search);
+  isAdmin.value = params.has("admin") || window.location.hash === "#admin";
+};
+
+const loadCertificates = async () => {
+  try {
+    const response = await fetch("./certificates.json", { cache: "no-store" });
+
+    if (!response.ok) {
+      throw new Error("Unable to load certificates");
+    }
+
+    const data = (await response.json()) as Certificate[];
+    certificates.value = Array.isArray(data) ? data : fallbackCertificates;
+  } catch {
+    certificates.value = fallbackCertificates;
+  }
+};
+
+const bytesToBase64 = (bytes: Uint8Array) => {
+  let binary = "";
+  const chunkSize = 0x8000;
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+
+  return btoa(binary);
+};
+
+const textToBase64 = (value: string) => bytesToBase64(new TextEncoder().encode(value));
+
+const base64ToText = (value: string) => {
+  const binary = atob(value.replace(/\s/g, ""));
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+
+  return new TextDecoder().decode(bytes);
+};
+
+const safeFileName = (fileName: string) => {
+  const parts = fileName.split(".");
+  const extension = parts.length > 1 ? `.${parts.pop()?.toLowerCase().replace(/[^a-z0-9]/g, "")}` : "";
+  const base = parts
+    .join(".")
+    .normalize("NFKD")
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/[-\s]+/g, "-")
+    .toLowerCase();
+
+  return `${base || `certificate-${Date.now()}`}${extension}`;
+};
+
+const githubApi = async (path: string, init: RequestInit = {}) => {
+  const response = await fetch(`https://api.github.com/repos/${adminOwner.value}/${adminRepo.value}/${path}`, {
+    ...init,
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${adminToken.value.trim()}`,
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(init.headers ?? {}),
+    },
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `GitHub API error: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+const getGithubContent = (path: string) =>
+  githubApi(`contents/${encodeURIComponent(path).replace(/%2F/g, "/")}?ref=${encodeURIComponent(adminBranch.value)}`) as Promise<GitHubContent | null>;
+
+const putGithubContent = (path: string, message: string, content: string, sha?: string) =>
+  githubApi(`contents/${encodeURIComponent(path).replace(/%2F/g, "/")}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      message,
+      content,
+      branch: adminBranch.value,
+      ...(sha ? { sha } : {}),
+    }),
+  });
+
+const loadRepositoryCertificates = async () => {
+  const file = await getGithubContent("public/certificates.json");
+  const rawContent = file?.content ? base64ToText(file.content) : "[]";
+  const parsed = JSON.parse(rawContent) as Certificate[];
+
+  return {
+    items: Array.isArray(parsed) ? parsed : fallbackCertificates,
+    sha: file?.sha,
+  };
+};
+
+const siteUrlForUpload = (fileName: string) => {
+  const base = adminSiteBase.value.replace(/\/+$/, "");
+
+  return `${base}/uploads/${fileName}`;
+};
+
+const onUploadFileChange = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  selectedUploadFile.value = target.files?.[0] ?? null;
+};
+
+const saveCertificate = async () => {
+  adminStatus.value = "";
+  adminError.value = "";
+
+  if (!adminToken.value.trim()) {
+    adminError.value = "تکایە GitHub token دابنێ.";
+    return;
+  }
+
+  if (!adminForm.value.name.trim() || !adminForm.value.description.trim()) {
+    adminError.value = "ناو و وردەکاری پێویستن.";
+    return;
+  }
+
+  if (!adminForm.value.installUrl.trim() && !selectedUploadFile.value) {
+    adminError.value = "یان فایلی پرۆفایل هەڵبژێرە، یان بەستەری دامەزراندن دابنێ.";
+    return;
+  }
+
+  adminBusy.value = true;
+
+  try {
+    let resolvedInstallUrl = adminForm.value.installUrl.trim();
+
+    if (selectedUploadFile.value) {
+      const fileName = safeFileName(selectedUploadFile.value.name);
+      const uploadPath = `public/uploads/${fileName}`;
+      const existingUpload = await getGithubContent(uploadPath);
+      const bytes = new Uint8Array(await selectedUploadFile.value.arrayBuffer());
+
+      await putGithubContent(
+        uploadPath,
+        `Upload certificate file ${fileName}`,
+        bytesToBase64(bytes),
+        existingUpload?.sha,
+      );
+
+      const uploadedUrl = siteUrlForUpload(fileName);
+      resolvedInstallUrl =
+        uploadMode.value === "manifest"
+          ? `itms-services://?action=download-manifest&url=${encodeURIComponent(uploadedUrl)}`
+          : `./uploads/${fileName}`;
+    }
+
+    const repositoryFile = await loadRepositoryCertificates();
+    const nextCertificate: Certificate = {
+      name: adminForm.value.name.trim(),
+      subtitle: adminForm.value.subtitle.trim() || "Apple Inc.",
+      description: adminForm.value.description.trim(),
+      category: adminForm.value.category,
+      issuer: adminForm.value.issuer.trim() || adminForm.value.category,
+      installs: adminForm.value.installs.trim() || "٠",
+      validFor: adminForm.value.validFor.trim() || "١ ساڵ",
+      installUrl: resolvedInstallUrl,
+      tone: adminForm.value.tone,
+      icon: adminForm.value.icon,
+      featured: adminForm.value.featured || undefined,
+      badge: adminForm.value.badge.trim() || undefined,
+      warning: adminForm.value.warning || undefined,
+    };
+    const nextCertificates = [...repositoryFile.items, nextCertificate];
+
+    await putGithubContent(
+      "public/certificates.json",
+      `Add certificate ${nextCertificate.name}`,
+      textToBase64(`${JSON.stringify(nextCertificates, null, 2)}\n`),
+      repositoryFile.sha,
+    );
+
+    certificates.value = nextCertificates;
+    adminForm.value = createAdminForm();
+    selectedUploadFile.value = null;
+    adminStatus.value = "بەڵگەنامەکە زیاد کرا. GitHub Pages پاش چەند چرکەیەک نوێ دەبێتەوە.";
+  } catch (error) {
+    adminError.value = error instanceof Error ? error.message : "هەڵەیەکی نەناسراو ڕوویدا.";
+  } finally {
+    adminBusy.value = false;
+  }
+};
+
+onMounted(() => {
+  updateAdminMode();
+  loadCertificates();
+  window.addEventListener("hashchange", updateAdminMode);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("hashchange", updateAdminMode);
+});
 </script>
 
 <template>
@@ -200,13 +508,18 @@ const installUrl = (installKey: string) =>
         <input v-model="query" type="search" placeholder="گەڕان لە بەڵگەنامەکان..." autocomplete="off" />
       </label>
 
-      <span class="verified-pill">
-        <BadgeCheck :size="14" />
-        پرۆفایلە پشتڕاستکراوەکان
-      </span>
+      <div class="topbar-actions">
+        <span class="verified-pill">
+          <BadgeCheck :size="14" />
+          پرۆفایلە پشتڕاستکراوەکان
+        </span>
+        <a class="admin-link" :href="isAdmin ? './' : '?admin=1'">
+          {{ isAdmin ? "ماڵەوە" : "ئادمین" }}
+        </a>
+      </div>
     </header>
 
-    <main class="page">
+    <main v-if="!isAdmin" class="page">
       <section class="hero" aria-labelledby="hero-title">
         <div class="eyebrow">
           <Smartphone :size="14" />
@@ -262,7 +575,7 @@ const installUrl = (installKey: string) =>
             :class="`tone-${certificate.tone}`"
           >
             <div class="card-icon">
-              <component :is="certificate.icon" :size="31" />
+              <component :is="certIcon(certificate.icon)" :size="31" />
             </div>
             <div class="card-copy">
               <div class="card-kicker">
@@ -272,7 +585,7 @@ const installUrl = (installKey: string) =>
               <h3>{{ certificate.name }}</h3>
               <p>{{ certificate.description }}</p>
               <div class="card-meta">
-                <a class="small-install" :href="installUrl(certificate.installKey)">
+                <a class="small-install" :href="installUrl(certificate)">
                   <Download :size="13" />
                   دامەزراندنی پرۆفایل
                 </a>
@@ -340,7 +653,7 @@ const installUrl = (installKey: string) =>
           >
             <div class="cert-top">
               <span class="cert-icon">
-                <component :is="certificate.icon" :size="24" />
+                <component :is="certIcon(certificate.icon)" :size="24" />
               </span>
               <div>
                 <h3>{{ certificate.name }}</h3>
@@ -369,7 +682,7 @@ const installUrl = (installKey: string) =>
                 {{ certificate.warning ? "پشتڕاستنەکراوە" : "پشتڕاستکراوە" }}
               </span>
               <span>{{ certificate.validFor }}</span>
-              <a :href="installUrl(certificate.installKey)" aria-label="دامەزراندنی بەڵگەنامە">
+              <a :href="installUrl(certificate)" aria-label="دامەزراندنی بەڵگەنامە">
                 <Download :size="14" />
                 دامەزراندن
               </a>
@@ -380,6 +693,171 @@ const installUrl = (installKey: string) =>
         <p v-if="filteredCertificates.length === 0" class="empty-state">
           هیچ بەڵگەنامەیەک بەم گەڕانە نەدۆزرایەوە.
         </p>
+      </section>
+    </main>
+
+    <main v-else class="page admin-page">
+      <section class="admin-hero" aria-labelledby="admin-title">
+        <div class="eyebrow">
+          <ShieldCheck :size="14" />
+          پانێلی بەڕێوەبەرایەتی
+        </div>
+        <h1 id="admin-title">زیادکردنی بەڵگەنامە</h1>
+        <p>
+          فایلی mobileconfig یان manifest ـی plist باربکە، یان بەستەری دامەزراندنی ئامادە دابنێ. گۆڕانکارییەکان بە GitHub
+          token ڕاستەوخۆ دەچنە ناو ڕیپۆزیتۆری و دواتر GitHub Pages نوێ دەبێتەوە.
+        </p>
+      </section>
+
+      <section class="admin-panel" aria-labelledby="admin-form-title">
+        <form @submit.prevent="saveCertificate">
+          <div class="admin-panel-head">
+            <div>
+              <h2 id="admin-form-title">فۆڕمی بارکردن</h2>
+              <p>Token لە وێبگەڕەکەتدا هەڵناگیرێت. تەنها بۆ ئەم ناردنە بەکاردێت.</p>
+            </div>
+            <span>{{ certificates.length }} بەڵگەنامە</span>
+          </div>
+
+          <div class="admin-note">
+            بۆ token ـی fine-grained، دەستپێگەیشتنی ڕیپۆزیتۆری
+            <b dir="ltr">Zarqawi2/zarqawi2.github.io</b>
+            هەڵبژێرە و ڕێگەی
+            <b dir="ltr">Contents: Read and write</b>
+            بدە.
+          </div>
+
+          <div class="admin-grid">
+            <label class="admin-field span-2">
+              <span>GitHub token</span>
+              <input v-model="adminToken" dir="ltr" type="password" autocomplete="off" placeholder="github_pat_..." />
+            </label>
+
+            <label class="admin-field">
+              <span>Owner</span>
+              <input v-model="adminOwner" dir="ltr" type="text" />
+            </label>
+
+            <label class="admin-field">
+              <span>Repository</span>
+              <input v-model="adminRepo" dir="ltr" type="text" />
+            </label>
+
+            <label class="admin-field">
+              <span>Branch</span>
+              <input v-model="adminBranch" dir="ltr" type="text" />
+            </label>
+
+            <label class="admin-field">
+              <span>Site URL</span>
+              <input v-model="adminSiteBase" dir="ltr" type="url" />
+            </label>
+
+            <label class="admin-field">
+              <span>ناوی بەڵگەنامە</span>
+              <input v-model="adminForm.name" type="text" placeholder="ناوی پرۆفایل" />
+            </label>
+
+            <label class="admin-field">
+              <span>ژێرناو</span>
+              <input v-model="adminForm.subtitle" type="text" placeholder="Apple Inc." />
+            </label>
+
+            <label class="admin-field span-2">
+              <span>وردەکاری</span>
+              <textarea v-model="adminForm.description" rows="4" placeholder="وردەکاری بەڵگەنامەکە بنووسە"></textarea>
+            </label>
+
+            <label class="admin-field">
+              <span>جۆر</span>
+              <select v-model="adminForm.category">
+                <option v-for="category in adminCategories" :key="category" :value="category">
+                  {{ categoryLabels[category] }}
+                </option>
+              </select>
+            </label>
+
+            <label class="admin-field">
+              <span>دەرکەر</span>
+              <input v-model="adminForm.issuer" type="text" />
+            </label>
+
+            <label class="admin-field">
+              <span>دامەزراندن</span>
+              <input v-model="adminForm.installs" type="text" placeholder="٠" />
+            </label>
+
+            <label class="admin-field">
+              <span>ماوەی کارکردن</span>
+              <input v-model="adminForm.validFor" type="text" placeholder="١ ساڵ" />
+            </label>
+
+            <label class="admin-field">
+              <span>ڕەنگ</span>
+              <select v-model="adminForm.tone">
+                <option v-for="tone in toneOptions" :key="tone.value" :value="tone.value">
+                  {{ tone.label }}
+                </option>
+              </select>
+            </label>
+
+            <label class="admin-field">
+              <span>ئایکۆن</span>
+              <select v-model="adminForm.icon">
+                <option v-for="icon in iconOptions" :key="icon.value" :value="icon.value">
+                  {{ icon.label }}
+                </option>
+              </select>
+            </label>
+
+            <label class="admin-field">
+              <span>باچ</span>
+              <input v-model="adminForm.badge" type="text" placeholder="نوێ" />
+            </label>
+
+            <label class="admin-field">
+              <span>بەستەری دامەزراندن</span>
+              <input v-model="adminForm.installUrl" dir="ltr" type="url" placeholder="https://..." />
+            </label>
+
+            <label class="admin-field span-2">
+              <span>فایلی بەڵگەنامە</span>
+              <input type="file" accept=".mobileconfig,.plist,.cer,.crt,.pem,application/x-apple-aspen-config" @change="onUploadFileChange" />
+            </label>
+
+            <fieldset class="admin-field span-2 upload-mode">
+              <legend>جۆری بەستەری فایلی بارکراو</legend>
+              <label>
+                <input v-model="uploadMode" type="radio" value="profile" />
+                mobileconfig یان فایلی ڕاستەوخۆ
+              </label>
+              <label>
+                <input v-model="uploadMode" type="radio" value="manifest" />
+                plist manifest بۆ دامەزراندنی iOS app
+              </label>
+            </fieldset>
+
+            <div class="admin-checks span-2">
+              <label>
+                <input v-model="adminForm.featured" type="checkbox" />
+                لە بەشی تایبەت پیشانی بدە
+              </label>
+              <label>
+                <input v-model="adminForm.warning" type="checkbox" />
+                وەک پشتڕاستنەکراوە نیشانی بدە
+              </label>
+            </div>
+          </div>
+
+          <div class="admin-actions">
+            <button type="submit" :disabled="adminBusy">
+              <Download :size="16" />
+              {{ adminBusy ? "باردەکرێت..." : "زیادکردنی بەڵگەنامە" }}
+            </button>
+            <p v-if="adminStatus" class="admin-status success">{{ adminStatus }}</p>
+            <p v-if="adminError" class="admin-status error">{{ adminError }}</p>
+          </div>
+        </form>
       </section>
     </main>
 
@@ -439,7 +917,9 @@ const installUrl = (installKey: string) =>
 }
 
 :global(button),
-:global(input) {
+:global(input),
+:global(select),
+:global(textarea) {
   font: inherit;
 }
 
@@ -530,6 +1010,28 @@ const installUrl = (installKey: string) =>
   border-radius: 999px;
   font-size: 12px;
   font-weight: 900;
+}
+
+.topbar-actions {
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 29px;
+  padding: 0 14px;
+  color: #176bff;
+  background: #ffffff;
+  border: 1px solid #cfe0ff;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  text-decoration: none;
 }
 
 .page {
@@ -1028,6 +1530,211 @@ const installUrl = (installKey: string) =>
   text-align: center;
 }
 
+.admin-page {
+  padding-top: 42px;
+}
+
+.admin-hero {
+  max-width: 760px;
+}
+
+.admin-hero h1 {
+  margin: 14px 0 0;
+  color: #071b3a;
+  font-size: clamp(38px, 5vw, 58px);
+  line-height: 1;
+}
+
+.admin-hero p {
+  max-width: 720px;
+  margin: 18px 0 0;
+  color: #61718d;
+  font-size: 16px;
+}
+
+.admin-panel {
+  margin-top: 30px;
+  padding: 28px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #d4e0ef;
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(24, 66, 119, 0.06);
+}
+
+.admin-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.admin-panel h2 {
+  margin: 0;
+  color: #071b3a;
+  font-size: 20px;
+}
+
+.admin-panel-head p,
+.admin-note {
+  margin: 7px 0 0;
+  color: #61718d;
+  font-size: 13px;
+}
+
+.admin-panel-head > span {
+  flex: 0 0 auto;
+  min-height: 29px;
+  padding: 5px 12px;
+  color: #176bff;
+  background: #eef5ff;
+  border: 1px solid #cfe0ff;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.admin-note {
+  margin-bottom: 20px;
+  padding: 13px 15px;
+  background: #edf6ff;
+  border: 1px solid #cfe0ff;
+  border-radius: 8px;
+}
+
+.admin-note b {
+  color: #1f487d;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.admin-field span,
+.admin-field legend,
+.upload-mode legend {
+  color: #1b3760;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.admin-field input,
+.admin-field select,
+.admin-field textarea {
+  width: 100%;
+  min-height: 43px;
+  padding: 0 13px;
+  color: #1b3760;
+  background: #f8fbff;
+  border: 1px solid #cfddec;
+  border-radius: 8px;
+  outline: 0;
+}
+
+.admin-field textarea {
+  min-height: 112px;
+  padding-block: 12px;
+  resize: vertical;
+}
+
+.admin-field input:focus,
+.admin-field select:focus,
+.admin-field textarea:focus {
+  border-color: #176bff;
+  box-shadow: 0 0 0 3px rgba(23, 107, 255, 0.12);
+}
+
+.span-2 {
+  grid-column: 1 / -1;
+}
+
+.upload-mode {
+  padding: 14px;
+  background: #f8fbff;
+  border: 1px solid #cfddec;
+  border-radius: 8px;
+}
+
+.upload-mode label,
+.admin-checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-inline-end: 18px;
+  color: #526782;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.upload-mode input,
+.admin-checks input {
+  width: 16px;
+  height: 16px;
+  accent-color: #176bff;
+}
+
+.admin-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 3px 0;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.admin-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 22px;
+  color: #ffffff;
+  background: #176bff;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 950;
+  box-shadow: 0 10px 24px rgba(23, 107, 255, 0.22);
+}
+
+.admin-actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.admin-status {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.admin-status.success {
+  color: #049557;
+}
+
+.admin-status.error {
+  color: #b42318;
+}
+
 .footer {
   width: min(100% - 48px, 1120px);
   margin: 40px auto 0;
@@ -1128,6 +1835,14 @@ const installUrl = (installKey: string) =>
   .filters {
     justify-content: flex-start;
   }
+
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .span-2 {
+    grid-column: auto;
+  }
 }
 
 @media (max-width: 560px) {
@@ -1138,6 +1853,10 @@ const installUrl = (installKey: string) =>
   .verified-pill {
     padding-inline: 10px;
     font-size: 10px;
+  }
+
+  .topbar-actions .verified-pill {
+    display: none;
   }
 
   .hero {
@@ -1171,6 +1890,20 @@ const installUrl = (installKey: string) =>
 
   .install-panel {
     padding: 22px;
+  }
+
+  .admin-panel {
+    padding: 20px;
+  }
+
+  .admin-panel-head,
+  .admin-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-actions button {
+    width: 100%;
   }
 
   .cert-top {

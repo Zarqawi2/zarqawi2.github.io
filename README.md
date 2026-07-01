@@ -21,4 +21,4 @@ npm run build
 2. In `Settings` -> `Pages`, choose `GitHub Actions` as the source.
 3. The deployment workflow will publish the built site.
 
-The page content, certificates, categories, and install links live in [src/App.vue](src/App.vue).
+The public certificate data lives in [public/certificates.json](public/certificates.json). Open `/?admin=1` to use the static admin panel. The admin panel needs a GitHub token with `Contents: Read and write` permission for `Zarqawi2/zarqawi2.github.io`; the token is used only in the browser session and is not saved by the app.
