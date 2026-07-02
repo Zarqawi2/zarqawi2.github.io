@@ -84,6 +84,8 @@ type CounterResponse = {
   count?: number;
   value?: number;
   data?: number;
+  code?: number;
+  message?: string;
 };
 
 const categories: Category[] = ["All", "Enterprise", "Development", "MDM Profile", "VPN", "Education", "Custom"];
@@ -268,7 +270,7 @@ const adminCategories = computed(() =>
   categories.filter((category): category is Exclude<Category, "All"> => category !== "All"),
 );
 
-const COUNTER_NAMESPACE = "zarqawilivecertvault";
+const COUNTER_NAMESPACE = "zarqawicertvaultlivev2";
 const VISITOR_COUNTER = "visitors";
 const SUPPORT_COUNTER = "support";
 const VISITOR_STORAGE_KEY = "certvault:real-visitor-counted";
@@ -290,13 +292,17 @@ const extractCounterValue = (payload: CounterResponse) => {
 
 const counterRequest = async (name: string, action?: "up") => {
   const path = action ? `${name}/${action}` : name;
-  const endpoint = new URL(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${path}`);
+  const counterEndpoint = new URL(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${path}`);
+  const endpoint = new URL("https://api.allorigins.win/raw");
+  const cacheKey = Date.now().toString();
 
-  endpoint.searchParams.set("_", Date.now().toString());
+  counterEndpoint.searchParams.set("_", cacheKey);
+  endpoint.searchParams.set("url", counterEndpoint.toString());
+  endpoint.searchParams.set("_", cacheKey);
 
   const response = await fetch(endpoint.toString(), { cache: "no-store" });
 
-  if (!response.ok && !action && response.status === 400) {
+  if (!response.ok && !action) {
     return 0;
   }
 
@@ -304,7 +310,17 @@ const counterRequest = async (name: string, action?: "up") => {
     throw new Error("Counter request failed");
   }
 
-  return extractCounterValue((await response.json()) as CounterResponse);
+  const payload = (await response.json()) as CounterResponse;
+
+  if (payload.code && payload.code >= 400) {
+    if (!action) {
+      return 0;
+    }
+
+    throw new Error(payload.message || "Counter request failed");
+  }
+
+  return extractCounterValue(payload);
 };
 
 const formatCount = (value: number | null) => {
