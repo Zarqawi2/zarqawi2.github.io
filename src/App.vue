@@ -171,6 +171,8 @@ const SUPPORT_COUNTER = "support";
 const COUNTER_STORAGE_PREFIX = `certvault:${COUNTER_NAMESPACE}`;
 const VISITOR_STORAGE_KEY = `${COUNTER_STORAGE_PREFIX}:real-visitor-counted`;
 const SUPPORT_STORAGE_KEY = `${COUNTER_STORAGE_PREFIX}:heart-supported`;
+const VISITOR_COUNT_CACHE_KEY = `${COUNTER_STORAGE_PREFIX}:visitor-count-cache`;
+const SUPPORT_COUNT_CACHE_KEY = `${COUNTER_STORAGE_PREFIX}:support-count-cache`;
 const COUNTER_REFRESH_MS = 15000;
 let engagementRefreshTimer: number | undefined;
 
@@ -190,6 +192,21 @@ const setPersistentFlag = (key: string) => {
 
   localStorage.setItem(key, "1");
   document.cookie = `${cookieName}=1; Max-Age=34560000; Path=/; SameSite=Lax${secureAttribute}`;
+};
+
+const readCachedCount = (key: string) => {
+  const value = Number(localStorage.getItem(key));
+
+  return Number.isFinite(value) ? value : null;
+};
+
+const cacheCount = (key: string, value: number) => {
+  localStorage.setItem(key, value.toString());
+};
+
+const applyCachedCounts = () => {
+  visitorCount.value ??= readCachedCount(VISITOR_COUNT_CACHE_KEY);
+  supportCount.value ??= readCachedCount(SUPPORT_COUNT_CACHE_KEY);
 };
 
 const extractCounterValue = (payload: CounterResponse) => {
@@ -216,10 +233,6 @@ const counterRequest = async (name: string, action?: "up") => {
 
   const response = await fetch(endpoint.toString(), { cache: "no-store" });
 
-  if (!response.ok && !action) {
-    return 0;
-  }
-
   if (!response.ok) {
     throw new Error("Counter request failed");
   }
@@ -227,10 +240,6 @@ const counterRequest = async (name: string, action?: "up") => {
   const payload = (await response.json()) as CounterResponse;
 
   if (payload.code && payload.code >= 400) {
-    if (!action) {
-      return 0;
-    }
-
     throw new Error(payload.message || "Counter request failed");
   }
 
@@ -243,6 +252,7 @@ const formatCount = (value: number | null) => {
 
 const loadEngagementCounters = async () => {
   hasSupported.value = hasPersistentFlag(SUPPORT_STORAGE_KEY);
+  applyCachedCounts();
 
   try {
     const hasCountedVisitor = hasPersistentFlag(VISITOR_STORAGE_KEY);
@@ -255,9 +265,10 @@ const loadEngagementCounters = async () => {
     }
 
     supportCount.value = await counterRequest(SUPPORT_COUNTER);
+    cacheCount(VISITOR_COUNT_CACHE_KEY, visitorCount.value);
+    cacheCount(SUPPORT_COUNT_CACHE_KEY, supportCount.value);
   } catch {
-    visitorCount.value ??= 0;
-    supportCount.value ??= 0;
+    applyCachedCounts();
   }
 };
 
@@ -270,10 +281,11 @@ const refreshEngagementCounters = async () => {
 
     visitorCount.value = visitors;
     supportCount.value = support;
+    cacheCount(VISITOR_COUNT_CACHE_KEY, visitors);
+    cacheCount(SUPPORT_COUNT_CACHE_KEY, support);
     hasSupported.value = hasPersistentFlag(SUPPORT_STORAGE_KEY);
   } catch {
-    visitorCount.value ??= 0;
-    supportCount.value ??= 0;
+    applyCachedCounts();
   }
 };
 
@@ -293,6 +305,7 @@ const supportSite = async () => {
 
   try {
     supportCount.value = await counterRequest(SUPPORT_COUNTER, "up");
+    cacheCount(SUPPORT_COUNT_CACHE_KEY, supportCount.value);
     hasSupported.value = true;
     setPersistentFlag(SUPPORT_STORAGE_KEY);
     supportMessage.value = "سوپاس بۆ پشتگیرییەکەت.";
