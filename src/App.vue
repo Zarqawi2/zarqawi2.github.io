@@ -273,8 +273,9 @@ const adminCategories = computed(() =>
 const COUNTER_NAMESPACE = "zarqawicertvaultlivev2";
 const VISITOR_COUNTER = "visitors";
 const SUPPORT_COUNTER = "support";
-const VISITOR_STORAGE_KEY = "certvault:real-visitor-counted";
-const SUPPORT_STORAGE_KEY = "certvault:heart-supported";
+const COUNTER_STORAGE_PREFIX = `certvault:${COUNTER_NAMESPACE}`;
+const VISITOR_STORAGE_KEY = `${COUNTER_STORAGE_PREFIX}:real-visitor-counted`;
+const SUPPORT_STORAGE_KEY = `${COUNTER_STORAGE_PREFIX}:heart-supported`;
 
 const isLiveSite = () => window.location.hostname === "zarqawi2.github.io";
 
