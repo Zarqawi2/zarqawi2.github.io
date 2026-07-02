@@ -276,8 +276,26 @@ const SUPPORT_COUNTER = "support";
 const COUNTER_STORAGE_PREFIX = `certvault:${COUNTER_NAMESPACE}`;
 const VISITOR_STORAGE_KEY = `${COUNTER_STORAGE_PREFIX}:real-visitor-counted`;
 const SUPPORT_STORAGE_KEY = `${COUNTER_STORAGE_PREFIX}:heart-supported`;
+const COUNTER_REFRESH_MS = 15000;
+let engagementRefreshTimer: number | undefined;
 
 const isLiveSite = () => window.location.hostname === "zarqawi2.github.io";
+
+const cookieNameFor = (key: string) => key.replace(/[^a-zA-Z0-9_-]/g, "_");
+
+const hasPersistentFlag = (key: string) => {
+  const cookieName = cookieNameFor(key);
+
+  return localStorage.getItem(key) === "1" || document.cookie.split("; ").some((cookie) => cookie === `${cookieName}=1`);
+};
+
+const setPersistentFlag = (key: string) => {
+  const cookieName = cookieNameFor(key);
+  const secureAttribute = window.location.protocol === "https:" ? "; Secure" : "";
+
+  localStorage.setItem(key, "1");
+  document.cookie = `${cookieName}=1; Max-Age=34560000; Path=/; SameSite=Lax${secureAttribute}`;
+};
 
 const extractCounterValue = (payload: CounterResponse) => {
   if (typeof payload.count === "number") {
@@ -333,19 +351,35 @@ const formatCount = (value: number | null) => {
 };
 
 const loadEngagementCounters = async () => {
-  hasSupported.value = localStorage.getItem(SUPPORT_STORAGE_KEY) === "1";
+  hasSupported.value = hasPersistentFlag(SUPPORT_STORAGE_KEY);
 
   try {
-    const hasCountedVisitor = localStorage.getItem(VISITOR_STORAGE_KEY) === "1";
+    const hasCountedVisitor = hasPersistentFlag(VISITOR_STORAGE_KEY);
 
     if (isLiveSite() && !hasCountedVisitor) {
       visitorCount.value = await counterRequest(VISITOR_COUNTER, "up");
-      localStorage.setItem(VISITOR_STORAGE_KEY, "1");
+      setPersistentFlag(VISITOR_STORAGE_KEY);
     } else {
       visitorCount.value = await counterRequest(VISITOR_COUNTER);
     }
 
     supportCount.value = await counterRequest(SUPPORT_COUNTER);
+  } catch {
+    visitorCount.value ??= 0;
+    supportCount.value ??= 0;
+  }
+};
+
+const refreshEngagementCounters = async () => {
+  try {
+    const [visitors, support] = await Promise.all([
+      counterRequest(VISITOR_COUNTER),
+      counterRequest(SUPPORT_COUNTER),
+    ]);
+
+    visitorCount.value = visitors;
+    supportCount.value = support;
+    hasSupported.value = hasPersistentFlag(SUPPORT_STORAGE_KEY);
   } catch {
     visitorCount.value ??= 0;
     supportCount.value ??= 0;
@@ -369,7 +403,7 @@ const supportSite = async () => {
   try {
     supportCount.value = await counterRequest(SUPPORT_COUNTER, "up");
     hasSupported.value = true;
-    localStorage.setItem(SUPPORT_STORAGE_KEY, "1");
+    setPersistentFlag(SUPPORT_STORAGE_KEY);
     supportMessage.value = "سوپاس بۆ پشتگیرییەکەت.";
   } catch {
     supportMessage.value = "نەتوانرا پشتگیرییەکەت تۆمار بکرێت.";
@@ -622,10 +656,15 @@ onMounted(() => {
   updateAdminMode();
   loadCertificates();
   loadEngagementCounters();
+  engagementRefreshTimer = window.setInterval(refreshEngagementCounters, COUNTER_REFRESH_MS);
   window.addEventListener("hashchange", updateAdminMode);
 });
 
 onUnmounted(() => {
+  if (engagementRefreshTimer) {
+    window.clearInterval(engagementRefreshTimer);
+  }
+
   window.removeEventListener("hashchange", updateAdminMode);
 });
 </script>
