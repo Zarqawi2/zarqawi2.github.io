@@ -343,11 +343,7 @@ const counterRequest = async (name: string, action?: "up") => {
 };
 
 const formatCount = (value: number | null) => {
-  if (value === null) {
-    return "...";
-  }
-
-  return new Intl.NumberFormat("ckb-IQ").format(value);
+  return new Intl.NumberFormat("ckb-IQ").format(value ?? 0);
 };
 
 const loadEngagementCounters = async () => {
@@ -725,7 +721,8 @@ onUnmounted(() => {
           <div class="engagement-stat">
             <UsersRound :size="17" />
             <span>سەردانیکەر</span>
-            <strong>{{ formatCount(visitorCount) }}</strong>
+            <strong v-if="visitorCount !== null">{{ formatCount(visitorCount) }}</strong>
+            <span v-else class="counter-spinner" aria-label="بارکردنی ژمارە"></span>
           </div>
 
           <button
@@ -737,7 +734,8 @@ onUnmounted(() => {
           >
             <Heart :size="17" :fill="hasSupported ? 'currentColor' : 'none'" />
             <span>{{ hasSupported ? "پشتگیری کرا" : "پشتگیری" }}</span>
-            <strong>{{ formatCount(supportCount) }}</strong>
+            <strong v-if="supportCount !== null">{{ formatCount(supportCount) }}</strong>
+            <span v-else class="counter-spinner" aria-label="بارکردنی ژمارە"></span>
           </button>
         </div>
 
@@ -1331,6 +1329,25 @@ onUnmounted(() => {
   color: #071b3a;
   font-size: 15px;
   font-weight: 950;
+}
+
+.counter-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #d4e0ef;
+  border-block-start-color: #176bff;
+  border-radius: 50%;
+  animation: counter-spin 0.8s linear infinite;
+}
+
+.support-button .counter-spinner {
+  border-block-start-color: #e23b70;
+}
+
+@keyframes counter-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .support-button {
