@@ -100,114 +100,9 @@ const categoryLabels: Record<Category, string> = {
   Custom: "تایبەت",
 };
 
-const fallbackCertificates: Certificate[] = [
-  {
-    name: "پرۆفایلی تەواوی Enterprise",
-    subtitle: "Apple Inc.",
-    description: "بەڵگەنامەی تەواوی Apple Enterprise بۆ دامەزراندنی ڕاستەوخۆی iOS و دەستگەیشتنی نەرمەکاڵا لەسەر هەر ئامێرێکی iOS.",
-    category: "Enterprise",
-    issuer: "Apple Enterprise",
-    installs: "٢.٨ هەزار",
-    validFor: "١ ساڵ",
-    installKey: "XL",
-    tone: "blue",
-    icon: "Building2",
-    featured: true,
-    badge: "زۆرترین بەکارهێنان",
-  },
-  {
-    name: "پرۆفایلی تۆمارکردنی MDM",
-    subtitle: "Smart Pro",
-    description: "پرۆفایلی تۆمارکردنی Mobile Device Management بۆ بەڕێوەبردنی دوورەوە، جێبەجێکردنی ڕێساکان، و دابەشکردنی نەرمەکاڵا.",
-    category: "MDM Profile",
-    issuer: "MDM ـی دوورەوە",
-    installs: "١٤٣ هەزار",
-    validFor: "بێ سنوور",
-    installKey: "National",
-    tone: "violet",
-    icon: "Smartphone",
-    featured: true,
-    badge: "پێشنیارکراو",
-  },
-  {
-    name: "ڕێکخستنی VPN",
-    subtitle: "Crescent VPN",
-    description: "بەڵگەنامەی VPN ـی کۆمپانیا و پرۆفایلی تونێلی کۆدکراو بۆ دەستگەیشتنی پارێزراو لەسەر iPhone و iPad.",
-    category: "VPN",
-    issuer: "متمانەی تۆڕ",
-    installs: "٨٩ هەزار",
-    validFor: "٢ ساڵ",
-    installKey: "Rural",
-    tone: "green",
-    icon: "ShieldCheck",
-  },
-  {
-    name: "بەڵگەنامەی گەشەپێدان",
-    subtitle: "Apple Developer Program",
-    description: "بەڵگەنامەی ستانداردی Apple Developer بۆ تاقیکردنەوە و دابەشکردنی ئەپەکان لەسەر ئامێرە تۆمارکراوەکان.",
-    category: "Development",
-    issuer: "Apple Developer",
-    installs: "٨٧ هەزار",
-    validFor: "١ ساڵ",
-    installKey: "ChinaAcademy",
-    tone: "orange",
-    icon: "Wrench",
-  },
-  {
-    name: "پرۆفایلی دامەزراوەی پەروەردە",
-    subtitle: "Apple School Manager",
-    description: "تۆمارکردنی Apple School Manager بۆ iPad ـە بەڕێوەبراوەکان لە پۆل، تاقیگە، و پرۆگرامەکانی دامەزراوە.",
-    category: "Education",
-    issuer: "پەروەردە",
-    installs: "٧٤ هەزار",
-    validFor: "١ ساڵ",
-    installKey: "ChinaPower",
-    tone: "cyan",
-    icon: "GraduationCap",
-    badge: "نوێ",
-  },
-  {
-    name: "پرۆفایلی تۆڕی Wi-Fi",
-    subtitle: "ڕێکخستنی تایبەت",
-    description: "پرۆفایلی پێشوەختە ڕێکخراوی WPA2 لەگەڵ پشتڕاستکردنەوەی 802.1X بۆ دەستگەیشتنی Wi-Fi ـی کارگێڕی.",
-    category: "Custom",
-    issuer: "Wi-Fi",
-    installs: "٦٢ هەزار",
-    validFor: "هەمیشەیی",
-    installKey: "Postal",
-    tone: "cyan",
-    icon: "Wifi",
-  },
-  {
-    name: "واژۆکردنی Enterprise ـی تایبەت",
-    subtitle: "AppVault Signing",
-    description: "کۆمەڵە بەڵگەنامەیەکی Enterprise ـی تەواو تایبەت واژۆکراو بۆ پێداویستییە تایبەتەکانی دامەزراوە.",
-    category: "Enterprise",
-    issuer: "واژۆی تایبەت",
-    installs: "٣١ هەزار",
-    validFor: "١ ساڵ",
-    installKey: "Takeoff",
-    tone: "violet",
-    icon: "FlaskConical",
-  },
-  {
-    name: "جێگرەوەی TestFlight",
-    subtitle: "AppVault Signing",
-    description: "بەڵگەنامەی دابەشکردنی Ad-hoc بۆ تاقیکردنەوەی ئەپەکانی beta تا ١٠٠ ئامێری تۆمارکراو.",
-    category: "Development",
-    issuer: "تاقیکردنەوەی Beta",
-    installs: "٢٨ هەزار",
-    validFor: "٩٠ ڕۆژ",
-    installKey: "Election",
-    tone: "orange",
-    icon: "Zap",
-    warning: true,
-  },
-];
-
 const activeCategory = ref<Category>("All");
 const query = ref("");
-const certificates = ref<Certificate[]>(fallbackCertificates);
+const certificates = ref<Certificate[]>([]);
 const adminEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_ADMIN === "true";
 const isAdmin = ref(false);
 const visitorCount = ref<number | null>(null);
@@ -469,9 +364,9 @@ const loadCertificates = async () => {
     }
 
     const data = (await response.json()) as Certificate[];
-    certificates.value = Array.isArray(data) ? data : fallbackCertificates;
+    certificates.value = Array.isArray(data) ? data : [];
   } catch {
-    certificates.value = fallbackCertificates;
+    certificates.value = [];
   }
 };
 
@@ -552,7 +447,7 @@ const loadRepositoryCertificates = async () => {
   const parsed = JSON.parse(rawContent) as Certificate[];
 
   return {
-    items: Array.isArray(parsed) ? parsed : fallbackCertificates,
+    items: Array.isArray(parsed) ? parsed : [],
     sha: file?.sha,
   };
 };
@@ -887,7 +782,7 @@ onUnmounted(() => {
         </div>
 
         <p v-if="filteredCertificates.length === 0" class="empty-state">
-          هیچ بەڵگەنامەیەک بەم گەڕانە نەدۆزرایەوە.
+          هێشتا هیچ بەڵگەنامەیەکی ڕاستەقینە زیاد نەکراوە. دوای بارکردن لە پانێلی بەڕێوەبەرایەتی، لێرە دەردەکەوێت.
         </p>
       </section>
     </main>
