@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { createClient, SupabaseAuthAdapter } from "@neondatabase/neon-js";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import type { Component } from "vue";
 import {
@@ -25,6 +26,7 @@ import {
 type Category = "All" | "Enterprise" | "Development" | "MDM Profile" | "VPN" | "Education" | "Custom";
 type Tone = "blue" | "violet" | "green" | "orange" | "cyan";
 type UploadMode = "profile" | "manifest";
+type AuthMode = "signin" | "signup";
 
 const iconComponents = {
   Building2,
@@ -80,13 +82,35 @@ type GitHubContent = {
   sha?: string;
 };
 
-type CounterResponse = {
-  count?: number;
-  value?: number;
-  data?: number;
-  code?: number;
-  message?: string;
+type NeonUser = {
+  id: string;
+  email?: string | null;
+  name?: string | null;
 };
+
+type NeonCounterRow = {
+  visitors?: number | string | null;
+  hearts?: number | string | null;
+  supported?: boolean | null;
+};
+
+const NEON_AUTH_URL =
+  import.meta.env.VITE_NEON_AUTH_URL ||
+  "https://ep-soft-meadow-asu9t86a.neonauth.c-4.eu-central-1.aws.neon.tech/neondb/auth";
+const NEON_DATA_API_URL =
+  import.meta.env.VITE_NEON_DATA_API_URL ||
+  "https://ep-soft-meadow-asu9t86a.apirest.c-4.eu-central-1.aws.neon.tech/neondb/rest/v1";
+
+const neon = createClient({
+  auth: {
+    adapter: SupabaseAuthAdapter(),
+    url: NEON_AUTH_URL,
+    allowAnonymous: true,
+  },
+  dataApi: {
+    url: NEON_DATA_API_URL,
+  },
+});
 
 const categories: Category[] = ["All", "Enterprise", "Development", "MDM Profile", "VPN", "Education", "Custom"];
 
@@ -110,6 +134,13 @@ const supportCount = ref<number | null>(null);
 const hasSupported = ref(false);
 const supportBusy = ref(false);
 const supportMessage = ref("");
+const neonUser = ref<NeonUser | null>(null);
+const authEmail = ref("");
+const authPassword = ref("");
+const authMode = ref<AuthMode>("signin");
+const authBusy = ref(false);
+const authPanelOpen = ref(false);
+const authError = ref("");
 const adminToken = ref("");
 const adminOwner = ref("Zarqawi2");
 const adminRepo = ref("zarqawi2.github.io");
@@ -165,34 +196,11 @@ const adminCategories = computed(() =>
   categories.filter((category): category is Exclude<Category, "All"> => category !== "All"),
 );
 
-const COUNTER_NAMESPACE = "zarqawicertvaultlivev2";
-const VISITOR_COUNTER = "visitors";
-const SUPPORT_COUNTER = "support";
-const COUNTER_STORAGE_PREFIX = `certvault:${COUNTER_NAMESPACE}`;
-const VISITOR_STORAGE_KEY = `${COUNTER_STORAGE_PREFIX}:real-visitor-counted`;
-const SUPPORT_STORAGE_KEY = `${COUNTER_STORAGE_PREFIX}:heart-supported`;
+const COUNTER_STORAGE_PREFIX = "certvault:neon:v1";
 const VISITOR_COUNT_CACHE_KEY = `${COUNTER_STORAGE_PREFIX}:visitor-count-cache`;
 const SUPPORT_COUNT_CACHE_KEY = `${COUNTER_STORAGE_PREFIX}:support-count-cache`;
 const COUNTER_REFRESH_MS = 15000;
 let engagementRefreshTimer: number | undefined;
-
-const isLiveSite = () => window.location.hostname === "zarqawi2.github.io";
-
-const cookieNameFor = (key: string) => key.replace(/[^a-zA-Z0-9_-]/g, "_");
-
-const hasPersistentFlag = (key: string) => {
-  const cookieName = cookieNameFor(key);
-
-  return localStorage.getItem(key) === "1" || document.cookie.split("; ").some((cookie) => cookie === `${cookieName}=1`);
-};
-
-const setPersistentFlag = (key: string) => {
-  const cookieName = cookieNameFor(key);
-  const secureAttribute = window.location.protocol === "https:" ? "; Secure" : "";
-
-  localStorage.setItem(key, "1");
-  document.cookie = `${cookieName}=1; Max-Age=34560000; Path=/; SameSite=Lax${secureAttribute}`;
-};
 
 const readCachedCount = (key: string) => {
   const value = Number(localStorage.getItem(key));
@@ -209,64 +217,114 @@ const applyCachedCounts = () => {
   supportCount.value ??= readCachedCount(SUPPORT_COUNT_CACHE_KEY);
 };
 
-const extractCounterValue = (payload: CounterResponse) => {
-  if (typeof payload.count === "number") {
-    return payload.count;
-  }
-
-  if (typeof payload.value === "number") {
-    return payload.value;
-  }
-
-  return typeof payload.data === "number" ? payload.data : 0;
-};
-
-const counterRequest = async (name: string, action?: "up") => {
-  const path = action ? `${name}/${action}` : name;
-  const counterEndpoint = new URL(`https://api.counterapi.dev/v1/${COUNTER_NAMESPACE}/${path}`);
-  const endpoint = new URL("https://api.allorigins.win/raw");
-  const cacheKey = Date.now().toString();
-
-  counterEndpoint.searchParams.set("_", cacheKey);
-  endpoint.searchParams.set("url", counterEndpoint.toString());
-  endpoint.searchParams.set("_", cacheKey);
-
-  const response = await fetch(endpoint.toString(), { cache: "no-store" });
-
-  if (!response.ok) {
-    throw new Error("Counter request failed");
-  }
-
-  const payload = (await response.json()) as CounterResponse;
-
-  if (payload.code && payload.code >= 400) {
-    throw new Error(payload.message || "Counter request failed");
-  }
-
-  return extractCounterValue(payload);
-};
-
 const formatCount = (value: number | null) => {
   return new Intl.NumberFormat("ckb-IQ").format(value ?? 0);
 };
 
+const authSubmitLabel = computed(() => (authMode.value === "signin" ? "چوونەژوورەوە" : "ئەژمار دروست بکە"));
+const authSwitchLabel = computed(() =>
+  authMode.value === "signin" ? "ئەژمارت نییە؟ دروستی بکە" : "ئەژمارت هەیە؟ بچۆ ژوورەوە",
+);
+const authInputAutocomplete = computed(() => (authMode.value === "signin" ? "current-password" : "new-password"));
+const signedInLabel = computed(() => neonUser.value?.email || neonUser.value?.name || "بەکارهێنەر");
+
+const toCounterNumber = (value: number | string | null | undefined) => {
+  const numberValue = Number(value);
+
+  return Number.isFinite(numberValue) ? numberValue : 0;
+};
+
+const firstCounterRow = (data: NeonCounterRow | NeonCounterRow[] | null | undefined) => {
+  return Array.isArray(data) ? data[0] : data;
+};
+
+const cacheCounterRow = () => {
+  if (visitorCount.value !== null) {
+    cacheCount(VISITOR_COUNT_CACHE_KEY, visitorCount.value);
+  }
+
+  if (supportCount.value !== null) {
+    cacheCount(SUPPORT_COUNT_CACHE_KEY, supportCount.value);
+  }
+};
+
+const applyCounterRow = (row: NeonCounterRow | null | undefined) => {
+  if (!row) {
+    return;
+  }
+
+  visitorCount.value = toCounterNumber(row.visitors);
+  supportCount.value = toCounterNumber(row.hearts);
+
+  if (typeof row.supported === "boolean") {
+    hasSupported.value = row.supported;
+  }
+
+  cacheCounterRow();
+};
+
+const getResponseError = (response: unknown) => {
+  const maybeResponse = response as { error?: { message?: string } | null };
+
+  return maybeResponse?.error?.message || "";
+};
+
+const extractSessionUser = (response: unknown): NeonUser | null => {
+  const payload = response as {
+    data?: { session?: { user?: NeonUser | null } | null; user?: NeonUser | null } | null;
+    session?: { user?: NeonUser | null } | null;
+    user?: NeonUser | null;
+  };
+
+  return payload.data?.session?.user || payload.data?.user || payload.session?.user || payload.user || null;
+};
+
+const counterRpc = async (
+  functionName: "get_public_site_counters" | "get_site_counters" | "record_visit" | "record_heart",
+) => {
+  const response = (await neon.rpc(functionName)) as {
+    data?: NeonCounterRow | NeonCounterRow[] | null;
+    error?: { message?: string } | null;
+  };
+
+  if (response.error) {
+    throw new Error(response.error.message || "Neon request failed");
+  }
+
+  const row = firstCounterRow(response.data);
+
+  if (!row) {
+    throw new Error("Neon returned no counter data");
+  }
+
+  return row;
+};
+
+const refreshNeonSession = async () => {
+  const response = await neon.auth.getSession();
+  const message = getResponseError(response);
+
+  if (message) {
+    throw new Error(message);
+  }
+
+  neonUser.value = extractSessionUser(response);
+
+  return neonUser.value;
+};
+
 const loadEngagementCounters = async () => {
-  hasSupported.value = hasPersistentFlag(SUPPORT_STORAGE_KEY);
   applyCachedCounts();
 
   try {
-    const hasCountedVisitor = hasPersistentFlag(VISITOR_STORAGE_KEY);
+    const user = await refreshNeonSession();
 
-    if (isLiveSite() && !hasCountedVisitor) {
-      visitorCount.value = await counterRequest(VISITOR_COUNTER, "up");
-      setPersistentFlag(VISITOR_STORAGE_KEY);
+    if (user) {
+      applyCounterRow(await counterRpc("record_visit"));
     } else {
-      visitorCount.value = await counterRequest(VISITOR_COUNTER);
+      hasSupported.value = false;
+      applyCounterRow(await counterRpc("get_public_site_counters"));
     }
-
-    supportCount.value = await counterRequest(SUPPORT_COUNTER);
-    cacheCount(VISITOR_COUNT_CACHE_KEY, visitorCount.value);
-    cacheCount(SUPPORT_COUNT_CACHE_KEY, supportCount.value);
   } catch {
     applyCachedCounts();
   }
@@ -274,18 +332,94 @@ const loadEngagementCounters = async () => {
 
 const refreshEngagementCounters = async () => {
   try {
-    const [visitors, support] = await Promise.all([
-      counterRequest(VISITOR_COUNTER),
-      counterRequest(SUPPORT_COUNTER),
-    ]);
+    const user = await refreshNeonSession();
 
-    visitorCount.value = visitors;
-    supportCount.value = support;
-    cacheCount(VISITOR_COUNT_CACHE_KEY, visitors);
-    cacheCount(SUPPORT_COUNT_CACHE_KEY, support);
-    hasSupported.value = hasPersistentFlag(SUPPORT_STORAGE_KEY);
+    if (user) {
+      applyCounterRow(await counterRpc("get_site_counters"));
+    } else {
+      hasSupported.value = false;
+      applyCounterRow(await counterRpc("get_public_site_counters"));
+    }
   } catch {
     applyCachedCounts();
+  }
+};
+
+const toggleAuthMode = () => {
+  authMode.value = authMode.value === "signin" ? "signup" : "signin";
+  authError.value = "";
+};
+
+const submitAuth = async () => {
+  if (authBusy.value) {
+    return;
+  }
+
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+
+  authError.value = "";
+
+  if (!email || password.length < 6) {
+    authError.value = "ئیمەیڵ و وشەی نهێنی بنووسە. وشەی نهێنی لانیکەم ٦ پیت بێت.";
+    return;
+  }
+
+  authBusy.value = true;
+
+  try {
+    const response =
+      authMode.value === "signin"
+        ? await neon.auth.signInWithPassword({ email, password })
+        : await neon.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                name: email.split("@")[0] || "CertVault user",
+              },
+            },
+          });
+    const message = getResponseError(response);
+
+    if (message) {
+      throw new Error(message);
+    }
+
+    neonUser.value = extractSessionUser(response);
+    await refreshNeonSession();
+
+    if (!neonUser.value) {
+      authError.value = "ئەژمارەکەت دروست کرا. ئەگەر پێویست بوو، تکایە دووبارە بچۆ ژوورەوە.";
+      authMode.value = "signin";
+      return;
+    }
+
+    authPassword.value = "";
+    authPanelOpen.value = false;
+    supportMessage.value = "";
+    applyCounterRow(await counterRpc("record_visit"));
+  } catch (error) {
+    authError.value = error instanceof Error ? error.message : "نەتوانرا بچیتە ژوورەوە.";
+  } finally {
+    authBusy.value = false;
+  }
+};
+
+const signOut = async () => {
+  if (authBusy.value) {
+    return;
+  }
+
+  authBusy.value = true;
+
+  try {
+    await neon.auth.signOut();
+  } finally {
+    neonUser.value = null;
+    hasSupported.value = false;
+    supportMessage.value = "";
+    authBusy.value = false;
   }
 };
 
@@ -296,21 +430,19 @@ const supportSite = async () => {
     return;
   }
 
-  if (!isLiveSite()) {
-    supportMessage.value = "پشتگیری تەنها لە وێبسایتی ڕاستەقینە زیاد دەکرێت.";
+  if (!neonUser.value) {
+    authPanelOpen.value = true;
+    supportMessage.value = "بۆ پشتگیرییەکی ڕاستەقینە، پێویستە بچیتە ژوورەوە.";
     return;
   }
 
   supportBusy.value = true;
 
   try {
-    supportCount.value = await counterRequest(SUPPORT_COUNTER, "up");
-    cacheCount(SUPPORT_COUNT_CACHE_KEY, supportCount.value);
-    hasSupported.value = true;
-    setPersistentFlag(SUPPORT_STORAGE_KEY);
+    applyCounterRow(await counterRpc("record_heart"));
     supportMessage.value = "سوپاس بۆ پشتگیرییەکەت.";
   } catch {
-    supportMessage.value = "نەتوانرا پشتگیرییەکەت تۆمار بکرێت.";
+    supportMessage.value = "نەتوانرا پشتگیرییەکەت لە Neon تۆمار بکرێت.";
   } finally {
     supportBusy.value = false;
   }
@@ -645,7 +777,52 @@ onUnmounted(() => {
             <strong v-if="supportCount !== null">{{ formatCount(supportCount) }}</strong>
             <span v-else class="counter-spinner" aria-label="بارکردنی ژمارە"></span>
           </button>
+
+          <button
+            v-if="!neonUser"
+            class="auth-open-button"
+            type="button"
+            @click="authPanelOpen = !authPanelOpen"
+          >
+            {{ authPanelOpen ? "داخستن" : "چوونەژوورەوە" }}
+          </button>
+
+          <div v-else class="auth-chip">
+            <span dir="ltr">{{ signedInLabel }}</span>
+            <button type="button" :disabled="authBusy" @click="signOut">چوونەدەرەوە</button>
+          </div>
         </div>
+
+        <form v-if="authPanelOpen && !neonUser" class="auth-panel" @submit.prevent="submitAuth">
+          <div class="auth-panel-head">
+            <strong>{{ authSubmitLabel }}</strong>
+            <button type="button" @click="toggleAuthMode">{{ authSwitchLabel }}</button>
+          </div>
+
+          <div class="auth-fields">
+            <label>
+              <span>ئیمەیڵ</span>
+              <input v-model="authEmail" type="email" autocomplete="email" placeholder="you@example.com" />
+            </label>
+
+            <label>
+              <span>وشەی نهێنی</span>
+              <input
+                v-model="authPassword"
+                type="password"
+                :autocomplete="authInputAutocomplete"
+                placeholder="لانیکەم ٦ پیت"
+              />
+            </label>
+
+            <button class="auth-submit" type="submit" :disabled="authBusy">
+              <span v-if="authBusy" class="counter-spinner" aria-label="بارکردن"></span>
+              <span v-else>{{ authSubmitLabel }}</span>
+            </button>
+          </div>
+
+          <p v-if="authError" class="auth-error">{{ authError }}</p>
+        </form>
 
         <p v-if="supportMessage" class="support-message">{{ supportMessage }}</p>
       </section>
@@ -1208,7 +1385,9 @@ onUnmounted(() => {
 }
 
 .engagement-stat,
-.support-button {
+.support-button,
+.auth-open-button,
+.auth-chip {
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -1219,6 +1398,144 @@ onUnmounted(() => {
   border-radius: 999px;
   color: #1b3760;
   box-shadow: 0 8px 20px rgba(24, 66, 119, 0.05);
+}
+
+.auth-open-button,
+.auth-chip button {
+  cursor: pointer;
+  color: #176bff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.auth-open-button {
+  border-color: #c9dbf6;
+}
+
+.auth-chip {
+  max-width: min(100%, 340px);
+}
+
+.auth-chip span {
+  overflow: hidden;
+  color: #1b3760;
+  font-size: 12px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-chip button {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 12px;
+  max-width: 680px;
+  margin-top: 14px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid #d4e0ef;
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(24, 66, 119, 0.07);
+}
+
+.auth-panel-head,
+.auth-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-panel-head {
+  justify-content: space-between;
+}
+
+.auth-panel-head strong {
+  color: #071b3a;
+  font-size: 14px;
+}
+
+.auth-panel-head button {
+  padding: 0;
+  color: #176bff;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.auth-fields label {
+  display: grid;
+  gap: 5px;
+  min-width: min(100%, 190px);
+  flex: 1;
+}
+
+.auth-fields label span {
+  color: #61718d;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.auth-fields input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  color: #071b3a;
+  background: #f8fbff;
+  border: 1px solid #c9dbf6;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.auth-fields input:focus {
+  border-color: #176bff;
+  box-shadow: 0 0 0 3px rgba(23, 107, 255, 0.12);
+}
+
+.auth-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  min-height: 42px;
+  align-self: end;
+  padding: 0 16px;
+  color: #ffffff;
+  background: #176bff;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.auth-submit:disabled,
+.auth-chip button:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.auth-submit .counter-spinner {
+  width: 17px;
+  height: 17px;
+  border-color: rgba(255, 255, 255, 0.42);
+  border-block-start-color: #ffffff;
+}
+
+.auth-error {
+  margin: 0;
+  color: #b81e54;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .engagement-stat svg {

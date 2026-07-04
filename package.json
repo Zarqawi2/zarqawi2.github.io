@@ -14,6 +14,7 @@
   "dependencies": {
     "@iconify/vue": "^5.0.0",
     "@motionone/vue": "^10.16.4",
+    "@neondatabase/neon-js": "^0.6.2-beta",
     "@types/three": "^0.181.0",
     "@vueuse/core": "^14.1.0",
     "class-variance-authority": "^0.7.1",
