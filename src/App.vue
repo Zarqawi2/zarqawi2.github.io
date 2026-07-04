@@ -26,7 +26,6 @@ import {
 type Category = "All" | "Enterprise" | "Development" | "MDM Profile" | "VPN" | "Education" | "Custom";
 type Tone = "blue" | "violet" | "green" | "orange" | "cyan";
 type UploadMode = "profile" | "manifest";
-type AuthMode = "signin" | "signup";
 
 const iconComponents = {
   Building2,
@@ -86,6 +85,9 @@ type NeonUser = {
   id: string;
   email?: string | null;
   name?: string | null;
+  user_metadata?: {
+    name?: string | null;
+  } | null;
 };
 
 type NeonCounterRow = {
@@ -112,6 +114,9 @@ const neon = createClient({
   },
 });
 
+const ENGAGEMENT_STORAGE_PREFIX = "certvault:neon:v1";
+const USERNAME_STORAGE_KEY = `${ENGAGEMENT_STORAGE_PREFIX}:username`;
+
 const categories: Category[] = ["All", "Enterprise", "Development", "MDM Profile", "VPN", "Education", "Custom"];
 
 const categoryLabels: Record<Category, string> = {
@@ -135,9 +140,7 @@ const hasSupported = ref(false);
 const supportBusy = ref(false);
 const supportMessage = ref("");
 const neonUser = ref<NeonUser | null>(null);
-const authEmail = ref("");
-const authPassword = ref("");
-const authMode = ref<AuthMode>("signin");
+const authUsername = ref(localStorage.getItem(USERNAME_STORAGE_KEY) || "");
 const authBusy = ref(false);
 const authPanelOpen = ref(false);
 const authError = ref("");
@@ -196,7 +199,7 @@ const adminCategories = computed(() =>
   categories.filter((category): category is Exclude<Category, "All"> => category !== "All"),
 );
 
-const COUNTER_STORAGE_PREFIX = "certvault:neon:v1";
+const COUNTER_STORAGE_PREFIX = ENGAGEMENT_STORAGE_PREFIX;
 const VISITOR_COUNT_CACHE_KEY = `${COUNTER_STORAGE_PREFIX}:visitor-count-cache`;
 const SUPPORT_COUNT_CACHE_KEY = `${COUNTER_STORAGE_PREFIX}:support-count-cache`;
 const COUNTER_REFRESH_MS = 15000;
@@ -221,12 +224,37 @@ const formatCount = (value: number | null) => {
   return new Intl.NumberFormat("ckb-IQ").format(value ?? 0);
 };
 
-const authSubmitLabel = computed(() => (authMode.value === "signin" ? "چوونەژوورەوە" : "ئەژمار دروست بکە"));
-const authSwitchLabel = computed(() =>
-  authMode.value === "signin" ? "ئەژمارت نییە؟ دروستی بکە" : "ئەژمارت هەیە؟ بچۆ ژوورەوە",
+const signedInLabel = computed(
+  () =>
+    neonUser.value?.user_metadata?.name ||
+    neonUser.value?.name ||
+    localStorage.getItem(USERNAME_STORAGE_KEY) ||
+    "بەکارهێنەر",
 );
-const authInputAutocomplete = computed(() => (authMode.value === "signin" ? "current-password" : "new-password"));
-const signedInLabel = computed(() => neonUser.value?.email || neonUser.value?.name || "بەکارهێنەر");
+
+const normalizeUsername = (value: string) => value.trim().replace(/\s+/g, " ");
+
+const bytesToBase64Url = (bytes: Uint8Array) =>
+  btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+
+const usernameHash = async (username: string) => {
+  const bytes = new TextEncoder().encode(username.toLocaleLowerCase("ckb-IQ"));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+
+  return bytesToBase64Url(new Uint8Array(digest));
+};
+
+const usernameCredentials = async (username: string) => {
+  const hash = await usernameHash(username);
+
+  return {
+    email: `u-${hash.slice(0, 42)}@certvault.local`,
+    password: `CertVault-${hash}`,
+  };
+};
 
 const toCounterNumber = (value: number | string | null | undefined) => {
   const numberValue = Number(value);
@@ -345,42 +373,44 @@ const refreshEngagementCounters = async () => {
   }
 };
 
-const toggleAuthMode = () => {
-  authMode.value = authMode.value === "signin" ? "signup" : "signin";
-  authError.value = "";
-};
-
 const submitAuth = async () => {
   if (authBusy.value) {
     return;
   }
 
-  const email = authEmail.value.trim();
-  const password = authPassword.value;
+  const username = normalizeUsername(authUsername.value);
 
   authError.value = "";
 
-  if (!email || password.length < 6) {
-    authError.value = "ئیمەیڵ و وشەی نهێنی بنووسە. وشەی نهێنی لانیکەم ٦ پیت بێت.";
+  if (username.length < 2) {
+    authError.value = "تکایە ناوێک بنووسە.";
     return;
   }
 
   authBusy.value = true;
 
   try {
-    const response =
-      authMode.value === "signin"
-        ? await neon.auth.signInWithPassword({ email, password })
-        : await neon.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                name: email.split("@")[0] || "CertVault user",
-              },
-            },
-          });
-    const message = getResponseError(response);
+    const { email, password } = await usernameCredentials(username);
+    let response = await neon.auth.signInWithPassword({ email, password });
+    let message = getResponseError(response);
+
+    if (message) {
+      response = await neon.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: username,
+          },
+        },
+      });
+      message = getResponseError(response);
+    }
+
+    if (message) {
+      response = await neon.auth.signInWithPassword({ email, password });
+      message = getResponseError(response);
+    }
 
     if (message) {
       throw new Error(message);
@@ -390,17 +420,17 @@ const submitAuth = async () => {
     await refreshNeonSession();
 
     if (!neonUser.value) {
-      authError.value = "ئەژمارەکەت دروست کرا. ئەگەر پێویست بوو، تکایە دووبارە بچۆ ژوورەوە.";
-      authMode.value = "signin";
+      authError.value = "نەتوانرا ئەم ناوە تۆمار بکرێت. تکایە ناوێکی تر هەڵبژێرە.";
       return;
     }
 
-    authPassword.value = "";
+    authUsername.value = username;
+    localStorage.setItem(USERNAME_STORAGE_KEY, username);
     authPanelOpen.value = false;
     supportMessage.value = "";
     applyCounterRow(await counterRpc("record_visit"));
   } catch (error) {
-    authError.value = error instanceof Error ? error.message : "نەتوانرا بچیتە ژوورەوە.";
+    authError.value = error instanceof Error ? error.message : "نەتوانرا ناوەکەت تۆمار بکرێت.";
   } finally {
     authBusy.value = false;
   }
@@ -419,6 +449,7 @@ const signOut = async () => {
     neonUser.value = null;
     hasSupported.value = false;
     supportMessage.value = "";
+    authPanelOpen.value = true;
     authBusy.value = false;
   }
 };
@@ -432,7 +463,7 @@ const supportSite = async () => {
 
   if (!neonUser.value) {
     authPanelOpen.value = true;
-    supportMessage.value = "بۆ پشتگیرییەکی ڕاستەقینە، پێویستە بچیتە ژوورەوە.";
+    supportMessage.value = "بۆ پشتگیرییەکی ڕاستەقینە، تەنها ناوەکەت بنووسە.";
     return;
   }
 
@@ -784,40 +815,36 @@ onUnmounted(() => {
             type="button"
             @click="authPanelOpen = !authPanelOpen"
           >
-            {{ authPanelOpen ? "داخستن" : "چوونەژوورەوە" }}
+            {{ authPanelOpen ? "داخستن" : "ناو بنووسە" }}
           </button>
 
           <div v-else class="auth-chip">
             <span dir="ltr">{{ signedInLabel }}</span>
-            <button type="button" :disabled="authBusy" @click="signOut">چوونەدەرەوە</button>
+            <button type="button" :disabled="authBusy" @click="signOut">گۆڕینی ناو</button>
           </div>
         </div>
 
         <form v-if="authPanelOpen && !neonUser" class="auth-panel" @submit.prevent="submitAuth">
           <div class="auth-panel-head">
-            <strong>{{ authSubmitLabel }}</strong>
-            <button type="button" @click="toggleAuthMode">{{ authSwitchLabel }}</button>
+            <strong>ناوەکەت بنووسە</strong>
           </div>
 
-          <div class="auth-fields">
+          <div class="auth-fields username-only">
             <label>
-              <span>ئیمەیڵ</span>
-              <input v-model="authEmail" type="email" autocomplete="email" placeholder="you@example.com" />
-            </label>
-
-            <label>
-              <span>وشەی نهێنی</span>
+              <span>ناوی بەکارهێنەر</span>
               <input
-                v-model="authPassword"
-                type="password"
-                :autocomplete="authInputAutocomplete"
-                placeholder="لانیکەم ٦ پیت"
+                v-model="authUsername"
+                type="text"
+                autocomplete="username"
+                inputmode="text"
+                maxlength="40"
+                placeholder="ناوەکەت..."
               />
             </label>
 
             <button class="auth-submit" type="submit" :disabled="authBusy">
               <span v-if="authBusy" class="counter-spinner" aria-label="بارکردن"></span>
-              <span v-else>{{ authSubmitLabel }}</span>
+              <span v-else>دەستپێکردن</span>
             </button>
           </div>
 
